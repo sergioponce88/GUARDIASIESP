@@ -1,429 +1,346 @@
-import streamlit as st
-import pandas as pd
-from datetime import datetime, timedelta
-from fpdf import FPDF
-import json
-import os
+import React, { useState, useEffect } from 'react';
+import { 
+  Shield, Users, FileText, Settings, LogOut, 
+  ChevronRight, Search, Plus, Trash2, Download, 
+  RefreshCw, CheckCircle, AlertCircle, Clock, 
+  UserCheck, ShieldAlert, LayoutDashboard
+} from 'lucide-react';
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(
-    page_title="IESP - GESTIÓN DE DIAGRAMACIÓN DE GUARDIA",
-    layout="wide",
-    page_icon="🛡️",
-    initial_sidebar_state="expanded"
-)
+/**
+ * SISTEMA DE GESTIÓN DE GUARDIA IESP - VERSIÓN PRO 2026
+ * Diseño de vanguardia con React + Tailwind CSS
+ */
 
-# --- ESTILO CSS PRO 2026 ---
-def inject_modern_css():
-    st.markdown("""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
-        * { font-family: 'Plus Jakarta Sans', sans-serif; }
-        .main { background-color: #fcfdfe; }
+const App = () => {
+  // --- ESTADOS ---
+  const [isLogged, setIsLogged] = useState(false);
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Datos de ejemplo simulando base de datos
+  const [groups, setGroups] = useState([
+    { id: 1, name: "Guardia 1 de III° Año", status: "De Servicio", chief: "Juarez Ignacio" },
+    { id: 2, name: "Guardia 2 de III° Año", status: "Franco", chief: "Mercado Marcelo" },
+    { id: 3, name: "Guardia 1 de II° Año", status: "Instrucción", chief: "Forales Emanuel" }
+  ]);
+
+  const [cadetes, setCadetes] = useState([
+    { id: 1, nombre: "Juarez Ignacio", curso: "IIIº Año", funcion: "Jefe de Guardia", situacion: "PRESENTE", group: 1 },
+    { id: 2, nombre: "Contreras Melani", curso: "IIIº Año", funcion: "Cabo de Cuarto", situacion: "PRESENTE", group: 1 },
+    { id: 3, nombre: "Bareiro Blanca", curso: "IIº Año", funcion: "Cadete Apostado", situacion: "PRESENTE", group: 1 },
+    { id: 4, nombre: "Etchenique Shamira", curso: "IIº Año", funcion: "Cadete Apostado", situacion: "FRANCO", group: 1 },
+    { id: 5, nombre: "Abregu Franco", curso: "IIº Año", funcion: "Cadete Apostado", situacion: "PRESENTE", group: 1 },
+    { id: 6, nombre: "Aguirre Santiago", curso: "IIº Año", funcion: "Cadete Apostado", situacion: "A.R.T.", group: 1 },
+    { id: 7, nombre: "Arias Ramiro", curso: "IIº Año", funcion: "Cadete Apostado", situacion: "PRESENTE", group: 1 },
+    { id: 8, nombre: "Arganaraz Roberto", curso: "IIº Año", funcion: "Cadete Apostado", situacion: "PRESENTE", group: 1 },
+  ]);
+
+  const [castigos, setCastigos] = useState([
+    { id: 101, nombre: "Pérez Juan", curso: "IIº Año", motivo: "Llegada Tarde" }
+  ]);
+
+  // --- LÓGICA ---
+  const handleLogin = (e) => {
+    e.preventDefault();
+    const pwd = e.target.password.value;
+    if (pwd === "iesp2026") setIsLogged(true);
+  };
+
+  const updateSituacion = (id, sit) => {
+    setCadetes(cadetes.map(c => c.id === id ? { ...c, situacion: sit } : c));
+  };
+
+  // --- COMPONENTES DE INTERFAZ ---
+
+  if (!isLogged) {
+    return (
+      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center p-4 relative overflow-hidden">
+        {/* Decoración de fondo */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-600/10 blur-[120px] rounded-full"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-600/10 blur-[120px] rounded-full"></div>
         
-        /* SIDEBAR PRO */
-        [data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #1e3a8a 0%, #0f172a 100%) !important;
-            border-right: 1px solid rgba(255,255,255,0.1);
-        }
-        [data-testid="stSidebar"] * { color: #f8fafc !important; }
+        <div className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 p-10 rounded-[32px] shadow-2xl z-10 text-center">
+          <div className="inline-flex p-4 bg-gradient-to-tr from-red-500 to-red-600 rounded-2xl shadow-lg shadow-red-500/20 mb-6">
+            <Shield className="text-white w-10 h-10" />
+          </div>
+          <h1 className="text-3xl font-black text-white tracking-tighter mb-2 uppercase">IESP GUARDIA</h1>
+          <p className="text-slate-400 text-sm mb-10 font-medium">Plataforma de Diagramación Avanzada 2026</p>
+          
+          <form onSubmit={handleLogin} className="space-y-6">
+            <div className="relative group text-left">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-4 mb-2 block">Contraseña de Acceso</label>
+              <input 
+                name="password"
+                type="password" 
+                placeholder="••••••••" 
+                className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white outline-none focus:border-red-500/50 focus:ring-4 focus:ring-red-500/10 transition-all text-center font-mono tracking-widest"
+              />
+            </div>
+            <button className="w-full bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-bold py-4 rounded-2xl shadow-xl shadow-red-600/20 transition-all transform hover:scale-[1.02] active:scale-[0.98] uppercase text-xs tracking-[0.2em]">
+              Entrar al Sistema
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
-        /* HEADER BAR */
-        .header-container {
-            background: white;
-            padding: 1.5rem 2rem;
-            border-radius: 24px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.03);
-            margin-bottom: 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border: 1px solid #f1f5f9;
-        }
-        .header-title {
-            color: #1e3a8a;
-            font-weight: 800;
-            font-size: 1.4rem;
-            letter-spacing: -0.02em;
-            margin: 0;
-        }
-
-        /* BOTONES PRO */
-        div.stButton > button {
-            background: #ef4444 !important;
-            color: white !important;
-            border: none !important;
-            padding: 0.75rem 1.5rem !important;
-            font-weight: 700 !important;
-            border-radius: 16px !important;
-            transition: all 0.3s ease !important;
-            text-transform: uppercase;
-            width: 100% !important;
-            box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.2);
-        }
-        div.stButton > button:hover {
-            transform: translateY(-2px);
-            background: #dc2626 !important;
-            box-shadow: 0 20px 25px -5px rgba(239, 68, 68, 0.3);
-        }
-
-        /* TARJETAS MÉTRICAS */
-        .metric-card {
-            background: white;
-            padding: 1.5rem;
-            border-radius: 24px;
-            border: 1px solid #f1f5f9;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.02);
-        }
-        .metric-label { color: #64748b; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
-        .metric-value { color: #0f172a; font-size: 1.4rem; font-weight: 800; margin-top: 0.5rem; }
-
-        /* GRUPOS CARD */
-        .group-card {
-            background: white;
-            border-radius: 28px;
-            overflow: hidden;
-            border: 1px solid #f1f5f9;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.03);
-            margin-bottom: 2rem;
-        }
-        .group-header {
-            background: #0f172a;
-            padding: 1rem;
-            color: white;
-            text-align: center;
-            font-weight: 800;
-            font-size: 0.85rem;
-        }
-        .cadet-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.7rem 1.2rem;
-            border-bottom: 1px solid #f8fafc;
-        }
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 10px;
-            display: inline-block;
-        }
-        .dot-blue { background-color: #2563eb; }
-        .dot-green { background-color: #10b981; }
-
-        /* LOGIN BOX */
-        .login-box {
-            background: white;
-            padding: 3rem;
-            border-radius: 32px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
-            text-align: center;
-            border: 1px solid #f1f5f9;
-        }
+  return (
+    <div className="min-h-screen bg-[#f8fafc] flex font-sans text-slate-900">
+      {/* Sidebar Lateral */}
+      <aside className="w-72 bg-[#0f172a] text-white flex flex-col shadow-2xl fixed h-screen z-30">
+        <div className="p-8 flex items-center gap-3 border-b border-white/5">
+          <div className="bg-red-600 p-2 rounded-lg">
+            <Shield size={20} />
+          </div>
+          <span className="font-black tracking-tighter uppercase text-lg">IESP <span className="text-red-500 font-light">Pro</span></span>
+        </div>
         
-        /* ELIMINAR SCROLL EN DATAFRAME */
-        [data-testid="stDataFrame"] > div { border: none !important; }
-    </style>
-    """, unsafe_allow_html=True)
+        <nav className="flex-1 p-6 space-y-2 overflow-y-auto">
+          {[
+            { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+            { id: 'groups', icon: Users, label: 'Todas las Guardias' },
+            { id: 'punishment', icon: ShieldAlert, label: 'Guardia Castigo' },
+            { id: 'reports', icon: FileText, label: 'Reportes PDF' },
+            { id: 'settings', icon: Settings, label: 'Ajustes de Ciclo' },
+          ].map(item => (
+            <button 
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`w-full flex items-center gap-4 p-4 rounded-2xl text-sm font-bold transition-all ${activeTab === item.id ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}
+            >
+              <item.icon size={18} /> {item.label}
+            </button>
+          ))}
+        </nav>
 
-inject_modern_css()
+        <div className="p-6 border-t border-white/5">
+          <button 
+            onClick={() => setIsLogged(false)}
+            className="w-full flex items-center gap-4 p-4 rounded-2xl text-sm font-bold text-red-400 hover:bg-red-500/10 transition-all"
+          >
+            <LogOut size={18} /> Salir
+          </button>
+        </div>
+      </aside>
 
-# --- PERSISTENCIA DE DATOS ---
-DB_FILE = "datos_guardia.json"
-LOGO_FILE = "logo_iesp.png"
+      {/* Contenido Principal */}
+      <main className="flex-1 ml-72 p-10 bg-gradient-to-b from-white to-[#f1f5f9] min-h-screen">
+        {/* Top Header */}
+        <header className="flex justify-between items-center mb-10">
+          <div>
+            <h2 className="text-3xl font-black text-[#0f172a] tracking-tighter uppercase">Diagramación de Guardia</h2>
+            <div className="flex items-center gap-2 text-slate-400 text-sm mt-1">
+              <Clock size={14} /> <span>Viernes, 19 de Marzo de 2026</span>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input 
+                type="text" 
+                placeholder="Buscar cadete..." 
+                className="bg-white border border-slate-200 rounded-full pl-12 pr-6 py-3 text-sm focus:ring-4 focus:ring-red-500/5 outline-none w-64 transition-all focus:w-80"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="bg-green-100 text-green-700 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-green-200 animate-pulse">
+              Servidor Activo
+            </div>
+          </div>
+        </header>
 
-def load_data():
-    if os.path.exists(DB_FILE):
-        try:
-            with open(DB_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if "start_date" in data:
-                    data["start_date"] = datetime.strptime(data["start_date"], "%Y-%m-%d").date()
-                return data
-        except: return None
-    return None
+        {activeTab === 'dashboard' && (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {/* Sincronización */}
+            <div className="bg-[#0f172a] p-1 rounded-[32px] flex">
+              <button className="flex-1 bg-white/5 hover:bg-white/10 text-white text-xs font-black uppercase tracking-widest py-4 rounded-[28px] transition-all flex items-center justify-center gap-3">
+                <RefreshCw size={14} className="text-red-500" /> Recalibrar Ciclo Operativo
+              </button>
+            </div>
 
-def save_data():
-    data_to_save = {
-        "groups": st.session_state.groups,
-        "punishments": st.session_state.punishments,
-        "overrides": st.session_state.overrides,
-        "role_overrides": st.session_state.role_overrides,
-        "statuses": st.session_state.statuses,
-        "start_date": st.session_state.start_date.strftime("%Y-%m-%d")
-    }
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(data_to_save, f, ensure_ascii=False, indent=4)
+            {/* Métricas */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              {[
+                { label: "Grupo en Turno", val: "N° 1 IIIº Año", color: "blue", icon: UserCheck },
+                { label: "Efectivos Hoy", val: "13 Cadetes", color: "green", icon: Users },
+                { label: "Novedades ART", val: "02 Casos", color: "red", icon: ShieldAlert },
+                { label: "Suplencias", val: "01 Activa", color: "amber", icon: RefreshCw },
+              ].map((m, i) => (
+                <div key={i} className="bg-white p-8 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl transition-all group">
+                  <div className={`w-10 h-10 rounded-xl mb-4 flex items-center justify-center bg-${m.color}-50 text-${m.color}-600 group-hover:scale-110 transition-transform`}>
+                    <m.icon size={20} />
+                  </div>
+                  <p className="text-slate-400 text-[10px] font-black uppercase tracking-widest mb-1">{m.label}</p>
+                  <h3 className="text-xl font-black text-[#0f172a]">{m.val}</h3>
+                </div>
+              ))}
+            </div>
 
-# --- INICIALIZACIÓN ---
-if 'groups' not in st.session_state:
-    saved = load_data()
-    if saved:
-        st.session_state.groups = saved["groups"]
-        st.session_state.punishments = saved["punishments"]
-        st.session_state.overrides = saved["overrides"]
-        st.session_state.role_overrides = saved.get("role_overrides", {})
-        st.session_state.statuses = saved.get("statuses", {})
-        st.session_state.start_date = saved["start_date"]
-    else:
-        st.session_state.groups = [
-            {"id": "G1", "name": "GUARDIA 1 de II° Año", "cadets": [{"n": i+1, "nombre": f"Cadete {i+1} G1", "curso": "IIº Año", "funcion": "Cadete Apostado"} for i in range(14)]},
-            {"id": "G5", "name": "GUARDIA 1 de III° Año", "cadets": [
-                {"n": 1, "nombre": "Juarez Ignacio", "curso": "IIIº Año", "funcion": "Jefe de Guardia"},
-                {"n": 2, "nombre": "Contreras Melani", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"},
-                {"n": 3, "nombre": "Bareiro Blanca", "curso": "IIº Año", "funcion": "Cadete Apostado"},
-                {"n": 4, "nombre": "Etchenique Shamira", "curso": "IIº Año", "funcion": "Cadete Apostado"},
-                {"n": 5, "nombre": "Abregu Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"},
-                {"n": 6, "nombre": "Aguirre Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"},
-                {"n": 7, "nombre": "Arias Ramiro", "curso": "IIº Año", "funcion": "Cadete Apostado"},
-                {"n": 8, "nombre": "Arganaraz Lezcano Roberto", "curso": "IIº Año", "funcion": "Cadete Apostado"}
-            ]},
-            {"id": "G2", "name": "GUARDIA 2 de II° Año", "cadets": []},
-            {"id": "G3", "name": "GUARDIA 3 de II° Año", "cadets": []},
-            {"id": "G4", "name": "GUARDIA 4 de II° Año", "cadets": []},
-            {"id": "G6", "name": "GUARDIA 2 de III° Año", "cadets": []},
-            {"id": "G7", "name": "GUARDIA 3 de III° Año", "cadets": []},
-            {"id": "G8", "name": "GUARDIA 4 de III° Año", "cadets": []},
-            {"id": "G9", "name": "GUARDIA 5 de III° Año", "cadets": []}
-        ]
-        st.session_state.punishments = {}
-        st.session_state.overrides = {}
-        st.session_state.role_overrides = {}
-        st.session_state.statuses = {}
-        st.session_state.start_date = datetime(2026, 3, 15).date()
+            {/* Tabla Principal */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2">
+                <div className="bg-white rounded-[40px] border border-slate-100 shadow-sm overflow-hidden">
+                  <div className="p-8 border-b border-slate-50 flex justify-between items-center bg-white">
+                    <h3 className="font-black text-lg text-[#0f172a] uppercase tracking-tighter flex items-center gap-3">
+                      <Users size={20} className="text-red-500" /> Nómina del Personal
+                    </h3>
+                    <input 
+                      type="date" 
+                      className="bg-slate-50 border-none rounded-xl px-4 py-2 text-xs font-bold" 
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                    />
+                  </div>
+                  <div className="p-2">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
+                          <th className="px-6 py-4 text-left">Orden</th>
+                          <th className="px-6 py-4 text-left">Apellido y Nombre</th>
+                          <th className="px-6 py-4 text-left">Función</th>
+                          <th className="px-6 py-4 text-left">Estado</th>
+                          <th className="px-6 py-4 text-right">Ajuste</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {cadetes.map((c, i) => (
+                          <tr key={i} className="hover:bg-slate-50/50 transition-colors group">
+                            <td className="px-6 py-5 text-sm font-bold text-slate-300">#{c.id}</td>
+                            <td className="px-6 py-5">
+                              <p className="text-sm font-black text-[#0f172a] uppercase">{c.nombre}</p>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{c.curso}</p>
+                            </td>
+                            <td className="px-6 py-5">
+                              <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg text-[9px] font-black uppercase">
+                                {c.funcion}
+                              </span>
+                            </td>
+                            <td className="px-6 py-5">
+                              <div className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full ${c.situacion === 'PRESENTE' ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                <span className={`text-[10px] font-black uppercase ${c.situacion === 'PRESENTE' ? 'text-green-600' : 'text-red-600'}`}>
+                                  {c.situacion}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-5 text-right">
+                              <button className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all">
+                                <Settings size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
 
-# --- LÓGICA DE PROCESAMIENTO CENTRALIZADA ---
-def get_processed_guard_for_date(date):
-    diff = (date - st.session_state.start_date).days
-    idx = diff % len(st.session_state.groups)
-    base_group = st.session_state.groups[idx]
-    date_key = str(date)
-    
-    processed_cadets = []
-    for i, c in enumerate(base_group['cadets']):
-        cadet_data = c.copy()
-        
-        # 1. Aplicar Reemplazo por Suplente
-        if date_key in st.session_state.overrides and str(i) in st.session_state.overrides[date_key]:
-            suplente = st.session_state.overrides[date_key][str(i)]
-            cadet_data['nombre'] = f"🔄 {suplente['nombre']} (SUPL)"
-            cadet_data['is_sub'] = True
-        else:
-            cadet_data['is_sub'] = False
+              {/* Acciones Rápidas Derecha */}
+              <div className="space-y-6">
+                <div className="bg-white p-8 rounded-[40px] border border-slate-100 shadow-sm">
+                  <h4 className="font-black text-sm uppercase tracking-widest text-slate-400 mb-6">Gestión de Estados</h4>
+                  <div className="space-y-4">
+                    <button className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-all border border-transparent hover:border-slate-200 group">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white rounded-lg group-hover:bg-red-500 group-hover:text-white transition-all shadow-sm">
+                          <Plus size={16} />
+                        </div>
+                        <span className="text-xs font-black uppercase">Marcar Novedad</span>
+                      </div>
+                      <ChevronRight size={14} className="text-slate-300" />
+                    </button>
+                    <button className="w-full flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition-all border border-transparent hover:border-slate-200 group">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-white rounded-lg group-hover:bg-blue-500 group-hover:text-white transition-all shadow-sm">
+                          <RefreshCw size={16} />
+                        </div>
+                        <span className="text-xs font-black uppercase">Asignar Suplente</span>
+                      </div>
+                      <ChevronRight size={14} className="text-slate-300" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-red-600 to-red-500 p-8 rounded-[40px] shadow-xl shadow-red-600/20 text-white">
+                  <h4 className="font-black text-sm uppercase tracking-widest mb-6 opacity-80">Guardia Castigo</h4>
+                  <div className="space-y-4 mb-6">
+                    {castigos.map((p, i) => (
+                      <div key={i} className="flex justify-between items-center bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/10">
+                        <div>
+                          <p className="text-xs font-black uppercase">{p.nombre}</p>
+                          <p className="text-[9px] font-bold opacity-60 uppercase">{p.curso}</p>
+                        </div>
+                        <Trash2 size={14} className="cursor-pointer hover:text-red-200 transition-colors" />
+                      </div>
+                    ))}
+                  </div>
+                  <button className="w-full bg-white text-red-600 font-black text-[10px] uppercase tracking-[0.2em] py-4 rounded-2xl hover:bg-red-50 transition-all">
+                    Agregar Refuerzo
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'groups' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 animate-in zoom-in-95 duration-500">
+            {groups.map((g, i) => (
+              <div key={i} className="bg-white rounded-[40px] border border-slate-100 p-8 shadow-sm hover:shadow-2xl transition-all hover:scale-[1.02] cursor-pointer group">
+                <div className="flex justify-between items-start mb-8">
+                  <div className="bg-slate-900 text-white w-12 h-12 rounded-2xl flex items-center justify-center font-black">
+                    G{g.id}
+                  </div>
+                  <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${g.status === 'De Servicio' ? 'bg-red-100 text-red-600' : 'bg-slate-100 text-slate-400'}`}>
+                    {g.status}
+                  </span>
+                </div>
+                <h3 className="text-xl font-black text-[#0f172a] uppercase mb-1">{g.name}</h3>
+                <p className="text-slate-400 text-xs font-bold mb-6 italic">Jefe: {g.chief}</p>
+                <div className="space-y-3">
+                  {[1,2,3].map(item => (
+                    <div key={item} className="flex items-center gap-3 text-slate-600 text-[11px] font-bold uppercase tracking-tight opacity-70">
+                      <CheckCircle size={12} className="text-green-500" /> Cadete de Ejemplo {item}
+                    </div>
+                  ))}
+                  <p className="text-center text-[9px] font-black text-slate-300 uppercase tracking-widest pt-4">Ver nómina completa</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'reports' && (
+          <div className="max-w-2xl mx-auto text-center py-20 bg-white rounded-[50px] border border-slate-100 shadow-sm animate-in fade-in duration-700">
+            <div className="bg-slate-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8">
+              <Download size={40} className="text-slate-300" />
+            </div>
+            <h3 className="text-3xl font-black text-[#0f172a] mb-4 tracking-tighter uppercase">Generador de Planillas</h3>
+            <p className="text-slate-400 mb-10 max-w-sm mx-auto font-medium">Seleccione el rango de fechas para exportar los diagramas oficiales listos para firma y archivo.</p>
             
-        # 2. Aplicar Función Temporal
-        if date_key in st.session_state.role_overrides and str(i) in st.session_state.role_overrides[date_key]:
-            cadet_data['funcion'] = st.session_state.role_overrides[date_key][str(i)]
-            
-        # 3. Aplicar Situación (Estado)
-        cadet_data['situacion'] = st.session_state.statuses.get(date_key, {}).get(str(i), "PRESENTE")
-        
-        processed_cadets.append(cadet_data)
-        
-    return {"name": base_group['name'], "cadets": processed_cadets, "id": base_group['id']}
+            <div className="flex gap-4 justify-center mb-10">
+              <input type="date" className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-bold outline-none" />
+              <input type="date" className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-bold outline-none" />
+            </div>
 
-# --- LÓGICA PDF ---
-def generate_official_pdf(start_date, end_date):
-    pdf = FPDF()
-    current_date = start_date
-    while current_date <= end_date:
-        pdf.add_page()
-        if os.path.exists(LOGO_FILE): pdf.image(LOGO_FILE, 10, 8, 25)
-        pdf.set_y(15); pdf.set_font("helvetica", 'B', 16)
-        pdf.cell(190, 8, "INSTITUTO DE ENSEÑANZA SUPERIOR DE POLICIA", align='C', ln=True)
-        pdf.set_font("helvetica", '', 11)
-        pdf.cell(190, 6, f"GUARDIA DE PREVENCION - FECHA: {current_date.strftime('%d/%m/%Y')}", align='C', ln=True)
-        
-        guard_data = get_processed_guard_for_date(current_date)
-        pdf.ln(10); pdf.set_font("helvetica", 'B', 12)
-        pdf.cell(190, 10, f"GRUPO EN SERVICIO: {guard_data['name']}", ln=True)
-        
-        pdf.set_fill_color(230, 230, 230); pdf.set_font("helvetica", 'B', 10)
-        headers = ["N", "Apellido y Nombre", "Curso", "Función", "Situación", "Firma"]
-        cols = [10, 55, 25, 40, 30, 30]
-        for h, w in zip(headers, cols): pdf.cell(w, 10, h, 1, align='C', fill=True)
-        pdf.ln()
-        
-        pdf.set_font("helvetica", '', 9)
-        for c in guard_data['cadets']:
-            clean_nom = c['nombre'].encode('latin-1', 'replace').decode('latin-1')
-            clean_func = c['funcion'].encode('latin-1', 'replace').decode('latin-1')
-            pdf.cell(cols[0], 8, str(c['n']), 1, align='C')
-            pdf.cell(cols[1], 8, clean_nom[:35], 1, align='L')
-            pdf.cell(cols[2], 8, c['curso'], 1, align='C')
-            pdf.cell(cols[3], 8, clean_func, 1, align='C')
-            pdf.cell(cols[4], 8, c['situacion'], 1, align='C')
-            pdf.cell(cols[5], 8, "", 1, ln=True)
-        current_date += timedelta(days=1)
-    return bytes(pdf.output())
+            <button className="bg-[#0f172a] text-white px-10 py-5 rounded-[24px] font-black text-xs uppercase tracking-[0.3em] hover:bg-red-600 transition-all shadow-xl shadow-slate-900/10 active:scale-95">
+              Generar Lote PDF
+            </button>
+          </div>
+        )}
+      </main>
 
-# --- LOGIN ---
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
+      {/* Marca de agua / Créditos */}
+      <footer className="fixed bottom-8 right-12 pointer-events-none">
+        <p className="text-[10px] font-black text-slate-300 uppercase tracking-[0.4em]">IESP SYSTEM SINC © 2026</p>
+      </footer>
+    </div>
+  );
+};
 
-if not st.session_state.logged_in:
-    _, col_login, _ = st.columns([1, 1.5, 1])
-    with col_login:
-        st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True)
-        st.markdown('<div class="login-box">', unsafe_allow_html=True)
-        if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=120)
-        st.markdown("### GESTIÓN DE GUARDIA")
-        pwd = st.text_input("CONTRASEÑA", type="password", placeholder="••••", label_visibility="collapsed")
-        if st.button("ENTRAR AL SISTEMA"):
-            if pwd == "iesp2026":
-                st.session_state.logged_in = True
-                st.rerun()
-            else: st.error("Clave Incorrecta")
-        st.markdown('</div>', unsafe_allow_html=True)
-else:
-    with st.sidebar:
-        if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=100)
-        st.markdown("<div style='height: 20px;'></div>", unsafe_allow_html=True)
-        menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "📂 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
-        if st.button("SALIR"):
-            st.session_state.logged_in = False
-            st.rerun()
-
-    st.markdown(f"""<div class="header-container"><h1 class="header-title">I.E.S.P. GESTIÓN DE DIAGRAMACIÓN DE GUARDIA</h1><div style="color: #1e3a8a; font-weight: 800; font-size: 0.7rem;">🟢 MODO ONLINE</div></div>""", unsafe_allow_html=True)
-
-    if menu == "🏠 Dashboard":
-        if st.button("🔄 CORREGIR CICLO DE ROTACIÓN"):
-            st.session_state.start_date = datetime(2026, 3, 15).date()
-            save_data(); st.rerun()
-        
-        sel_date = st.date_input("FECHA SELECCIONADA", datetime.now().date())
-        date_key = str(sel_date)
-        guard_info = get_processed_guard_for_date(sel_date)
-
-        c1, c2, c3 = st.columns(3)
-        with c1: st.markdown(f"<div class='metric-card'><div class='metric-label'>Grupo Actual</div><div class='metric-value'>{guard_info['name']}</div></div>", unsafe_allow_html=True)
-        with c2: 
-            supl = sum(1 for c in guard_info['cadets'] if c.get('is_sub'))
-            st.markdown(f"<div class='metric-card'><div class='metric-label'>Suplentes</div><div class='metric-value'>{supl}</div></div>", unsafe_allow_html=True)
-        with c3:
-            nov = sum(1 for c in guard_info['cadets'] if c['situacion'] != "PRESENTE")
-            st.markdown(f"<div class='metric-card'><div class='metric-label'>Novedades</div><div class='metric-value'>{nov}</div></div>", unsafe_allow_html=True)
-
-        col_l, col_r = st.columns([2, 1])
-        with col_l:
-            st.markdown("### 📋 Nómina del Personal")
-            df_display = pd.DataFrame([
-                {
-                    "N°": c['n'], 
-                    "Nombre": f"{'✅' if c['situacion'] == 'PRESENTE' else '⚠️'} {c['nombre']}", 
-                    "Función": c['funcion'],
-                    "Situación": c['situacion']
-                } for c in guard_info['cadets']
-            ])
-            h = (len(df_display) + 1) * 35 + 5
-            st.dataframe(df_display, use_container_width=True, hide_index=True, height=h)
-
-        with col_r:
-            st.markdown("### ⚙️ Gestión Diaria")
-            with st.container(border=True):
-                st.write("**📝 Situación de Revista**")
-                c_idx = st.selectbox("Personal", range(len(guard_info['cadets'])), format_func=lambda x: guard_info['cadets'][x]['nombre'])
-                nuevo_st = st.selectbox("Estado", ["PRESENTE", "FRANCO", "NOTA MÉDICA", "A.R.T.", "AUSENTE"])
-                if st.button("ACTUALIZAR ESTADO"):
-                    if date_key not in st.session_state.statuses: st.session_state.statuses[date_key] = {}
-                    st.session_state.statuses[date_key][str(c_idx)] = nuevo_st
-                    save_data(); st.rerun()
-
-            with st.container(border=True):
-                st.write("**🎭 Modificar Función**")
-                c_idx_role = st.selectbox("Elegir Cadete", range(len(guard_info['cadets'])), format_func=lambda x: guard_info['cadets'][x]['nombre'], key="role_sel")
-                nueva_func = st.text_input("Nueva Función", placeholder="Ej: Centinela...")
-                if st.button("ASIGNAR FUNCIÓN"):
-                    if date_key not in st.session_state.role_overrides: st.session_state.role_overrides[date_key] = {}
-                    st.session_state.role_overrides[date_key][str(c_idx_role)] = nueva_func
-                    save_data(); st.rerun()
-            
-            with st.container(border=True):
-                st.write("**🔄 Reemplazo Suplente**")
-                target = st.selectbox("Titular", range(len(guard_info['cadets'])), format_func=lambda x: guard_info['cadets'][x]['nombre'], key="re")
-                g_sel = st.selectbox("Grupo Suplente", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'])
-                c_sel = st.selectbox("Elegir Suplente", range(len(st.session_state.groups[g_sel]['cadets'])), format_func=lambda x: st.session_state.groups[g_sel]['cadets'][x]['nombre'])
-                if st.button("APLICAR"):
-                    if date_key not in st.session_state.overrides: st.session_state.overrides[date_key] = {}
-                    st.session_state.overrides[date_key][str(target)] = st.session_state.groups[g_sel]['cadets'][c_sel]
-                    save_data(); st.rerun()
-
-            if date_key in st.session_state.overrides or date_key in st.session_state.role_overrides:
-                if st.button("♻️ RESTABLECER ORIGINALES"):
-                    st.session_state.overrides[date_key] = {}
-                    st.session_state.role_overrides[date_key] = {}
-                    save_data(); st.rerun()
-
-    elif menu == "📋 Todas las Guardias":
-        st.markdown("### 📋 Estado Actual de Todos los Grupos")
-        st.info("Esta vista muestra la nómina de cada grupo con los cambios aplicados para el día de HOY.")
-        today = datetime.now().date()
-        today_group_data = get_processed_guard_for_date(today)
-        
-        cols = st.columns(3)
-        for i in range(len(st.session_state.groups)):
-            # Calculamos la guardia de cada grupo para hoy (para ver si tiene cambios activos)
-            diff = (today - st.session_state.start_date).days
-            today_idx = diff % len(st.session_state.groups)
-            
-            # Si el grupo es el que está de guardia hoy, cargamos sus datos procesados
-            if i == today_idx:
-                current_g_data = today_group_data
-                is_active = True
-            else:
-                # Si no está de guardia, mostramos su base (o podrías procesarlo también si quisieras)
-                current_g_data = {"name": st.session_state.groups[i]['name'], "cadets": st.session_state.groups[i]['cadets'], "id": st.session_state.groups[i]['id']}
-                is_active = False
-
-            with cols[i % 3]:
-                st.markdown(f"""<div class="group-card"><div class="group-header">{current_g_data['name']}</div><div style="padding:1rem;">""", unsafe_allow_html=True)
-                if is_active: st.markdown('<p style="color:#2563eb; font-weight:900; text-align:center; font-size:0.7rem;">⚡ DE SERVICIO HOY (ACTUALIZADO)</p>', unsafe_allow_html=True)
-                for cadet in current_g_data['cadets']:
-                    dot = "dot-blue" if cadet['n'] <= 2 else "dot-green"
-                    nom_f = cadet['nombre']
-                    func_f = cadet.get('funcion', 'Cadete')
-                    st.markdown(f"""<div class="cadet-row"><span><span class="status-dot {dot}"></span>{nom_f}</span><span style="color:#cbd5e1; font-size:0.6rem; font-weight:800;">{func_f}</span></div>""", unsafe_allow_html=True)
-                st.markdown("</div></div>", unsafe_allow_html=True)
-
-    elif menu == "⚖️ Guardia Castigo":
-        st.markdown("### ⚖️ Gestión de Cadetes de Guardia Castigo")
-        p_date = st.date_input("Fecha", datetime.now().date()); pk = str(p_date)
-        ca, cb = st.columns(2)
-        with ca:
-            with st.container(border=True):
-                g_p = st.selectbox("Grupo Origen", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'])
-                c_p = st.selectbox("Cadete", range(len(st.session_state.groups[g_p]['cadets'])), format_func=lambda x: st.session_state.groups[g_p]['cadets'][x]['nombre'])
-                if st.button("AGREGAR"):
-                    if pk not in st.session_state.punishments: st.session_state.punishments[pk] = []
-                    st.session_state.punishments[pk].append(st.session_state.groups[g_p]['cadets'][c_p])
-                    save_data(); st.rerun()
-        with cb:
-            for idx, p in enumerate(st.session_state.punishments.get(pk, [])):
-                c1, c2 = st.columns([3, 1])
-                c1.write(f"• {p['nombre']}")
-                if c2.button("🗑️", key=f"d_{idx}"):
-                    st.session_state.punishments[pk].pop(idx); save_data(); st.rerun()
-
-    elif menu == "📂 Reportes PDF":
-        st.markdown("### 📂 Generación de Documentación")
-        c_r1, c_r2 = st.columns(2)
-        s_rep = c_r1.date_input("Inicio", datetime.now().date())
-        e_rep = c_r2.date_input("Fin", datetime.now().date())
-        if st.button("🚀 GENERAR PDF"):
-            try:
-                pdf_bytes = generate_official_pdf(s_rep, e_rep)
-                st.download_button("⬇️ DESCARGAR", pdf_bytes, f"Planilla_{s_rep}.pdf", "application/pdf")
-            except Exception as e: st.error(f"Error: {e}")
-
-    elif menu == "👥 Redistribución":
-        for i, g in enumerate(st.session_state.groups):
-            with st.expander(f"📝 Editar {g['name']}"):
-                df_editor = st.data_editor(pd.DataFrame(g['cadets']), num_rows="dynamic", key=f"ed_{i}", use_container_width=True)
-                if st.button(f"Guardar {g['id']}", key=f"s_{i}"):
-                    st.session_state.groups[i]['cadets'] = df_editor.to_dict('records'); save_data(); st.success("Guardado")
-
-    elif menu == "⚙️ Ajustes":
-        n_s = st.date_input("Inicio Ciclo", st.session_state.start_date)
-        if st.button("GUARDAR"):
-            st.session_state.start_date = n_s; save_data(); st.success("Sincronizado")
+export default App;
