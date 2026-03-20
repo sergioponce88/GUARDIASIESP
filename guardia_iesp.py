@@ -21,6 +21,7 @@ ESCUDO_OFICIAL = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Escu
 
 # --- ESTILO CSS PROFESIONAL ---
 def inject_modern_css():
+    # Eliminamos el prefijo f para evitar SyntaxError con llaves de CSS
     st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
@@ -100,10 +101,10 @@ def sync_to_cloud():
         body = {"fields": {"json_data": {"stringValue": json.dumps(state)}}}
         requests.patch(f"{BASE_URL}/persistence/current_state", json=body, timeout=10)
         st.session_state.last_sync = datetime.now().strftime("%H:%M:%S")
-        st.toast("✅ Nube Actualizada", icon="☁️")
+        st.toast("✅ Nube Sincronizada", icon="☁️")
     except: st.error("❌ Falló la conexión")
 
-# --- NÓMINA INSTITUCIONAL COMPLETA (9 GRUPOS) ---
+# --- BASE DE DATOS MAESTRA REAL (9 GRUPOS) ---
 DATOS_GRUPOS_BASE = [
     {"id": "G1", "name": "GRUPO N° 1 de II° Año", "cadets": [{"n": 1, "nombre": "Forales Emanuel", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Oliva Samuel", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Abregú Francisco", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Acosta Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Agüero Alexis", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Albarracín Federico", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Albornoz Lautaro", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Aranda Héctor", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Bazán Hernán", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "Brizuela Miguel", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "Bustamante Marcelo", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Cantos Núñez Javier", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Castro Miguel", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 14, "nombre": "Cequeira Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
     {"id": "G2", "name": "GRUPO N° 2 de II° Año", "cadets": [{"n": 1, "nombre": "Mercado Marcelo", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Galván Maira", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Ibarra Martina", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Issa Tiara", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Medina Emilse", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Coronel Luis", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Cruz Braian", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Fernández Adrián", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Figueroa Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "González Ignacio", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "González Salomón Gonzalo", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Guevara Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Ibáñez Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 14, "nombre": "Jaime Christian", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
@@ -218,14 +219,22 @@ if not st.session_state.logged_in:
             if pwd == "iesp2026": st.session_state.logged_in = True; st.rerun()
             else: st.error("Acceso Denegado")
 else:
+    # --- SIDEBAR ---
     with st.sidebar:
         if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=140)
         else: st.image(ESCUDO_OFICIAL, width=120)
         st.markdown(f"<h3 style='color:white; text-align:center; font-size:0.8rem;'>IESP SISTEMA 2026</h3>", unsafe_allow_html=True)
+        
         if BASE_URL: st.success(f"☁️ Nube Conectada\nSinc: {st.session_state.last_sync}")
         else: st.error("❌ Sin Cloud")
+
         menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Cambios Autorizados", "📂 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
         st.divider()
+        
+        # BOTONES DE SINCRONIZACIÓN
+        if st.button("💾 GUARDAR CAMBIOS", key="btn_save_cloud"):
+            sync_to_cloud()
+            
         if st.button("🔄 ACTUALIZAR DATOS", help="Descarga los cambios realizados en otros dispositivos"):
             cloud_data = load_from_cloud()
             if cloud_data:
@@ -233,8 +242,10 @@ else:
                 st.session_state.last_sync = datetime.now().strftime("%H:%M:%S")
                 st.success("¡Datos sincronizados!")
                 st.rerun()
+                
         if st.button("🚪 CERRAR SESIÓN"): st.session_state.logged_in = False; st.rerun()
 
+    # --- CABECERA ---
     header_col1, header_col2 = st.columns([1, 8])
     with header_col1:
         if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=70)
@@ -248,9 +259,10 @@ else:
         
         c1, c2, c3 = st.columns(3)
         with c1: st.markdown(f"<div class='metric-card'><b>Guardia Actual</b><br>{gi['name']}</div>", unsafe_allow_html=True)
-        with c2: st.markdown(f"<div class='metric-card'><b>Suplentes</b><br>{sum(1 for c in gi['cadets'] if c.get('is_sub'))}</div>", unsafe_allow_html=True)
-        with c3: st.markdown(f"<div class='metric-card'><b>Novedades</b><br>{sum(1 for c in gi['cadets'] if 'PRESENTE' not in c['situacion'] and 'CAMBIO' not in c['situacion'])}</div>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<div class='metric-card'><b>Suplentes Activos</b><br>{sum(1 for c in gi['cadets'] if c.get('is_sub'))}</div>", unsafe_allow_html=True)
+        with c3: st.markdown(f"<div class='metric-card'><b>Novedades Hoy</b><br>{sum(1 for c in gi['cadets'] if 'PRESENTE' not in c['situacion'] and 'CAMBIO' not in c['situacion'])}</div>", unsafe_allow_html=True)
         
+        st.markdown("### 📋 Nómina del Personal")
         df_display = pd.DataFrame([{"N°": i+1, "Nombre": f"{'✅' if 'PRESENTE' in c['situacion'] or 'SUPLENTE' in c['situacion'] or 'CAMBIO' in c['situacion'] else '⚠️'} {c['nombre']}", "Función": c['funcion'], "Situación": c['situacion']} for i, c in enumerate(gi['cadets'])])
         st.dataframe(df_display, use_container_width=True, hide_index=True, height=(len(df_display)+1)*35+10, key=f"tbl_dash_{date_key}")
         
