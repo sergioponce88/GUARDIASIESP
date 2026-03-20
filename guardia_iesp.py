@@ -57,34 +57,38 @@ def inject_modern_css():
 
 inject_modern_css()
 
-# --- MOTOR DE SINCRONIZACIÓN (NIVEL 5) ---
+# --- MOTOR DE SINCRONIZACIÓN (SOLUCIÓN ERROR 400) ---
 def get_cloud_params():
     try:
         if "__firebase_config" in st.secrets:
             conf = json.loads(st.secrets["__firebase_config"])
-            return conf.get("projectId"), "iesp-v2026-final-oficial", conf.get("apiKey")
+            return conf.get("projectId").strip(), "iesp-v2026-final-oficial", conf.get("apiKey").strip()
         elif "firebase" in st.secrets:
-            return st.secrets["firebase"]["project_id"], "iesp-v2026-final-oficial", st.secrets.get("__firebase_config_api_key", "")
+            return st.secrets["firebase"]["project_id"].strip(), "iesp-v2026-final-oficial", st.secrets.get("__firebase_config_api_key", "").strip()
     except: pass
     return None, None, None
 
 PROJECT_ID, APP_ID, API_KEY = get_cloud_params()
-URL_DOC = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/artifacts/{APP_ID}/public/data/global_state?key={API_KEY}" if PROJECT_ID else ""
+# Ruta estandarizada para evitar errores de validación de Google
+URL_DOC = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/artifacts/{APP_ID}/public/data/persistence/current_state?key={API_KEY}"
 
 def load_from_cloud():
-    if not URL_DOC: return None
+    if not PROJECT_ID or not API_KEY: return None
     try:
         ts = str(int(time.time() * 1000))
-        headers = {"Cache-Control": "no-cache", "Pragma": "no-cache"}
+        headers = {"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"}
         resp = requests.get(f"{URL_DOC}&refresh={ts}", headers=headers, timeout=10)
         if resp.status_code == 200:
-            fields = resp.json().get("fields", {})
-            return json.loads(fields.get("json_data", {}).get("stringValue", "{}"))
-    except: pass
+            doc_data = resp.json().get("fields", {})
+            return json.loads(doc_data.get("json_data", {}).get("stringValue", "{}"))
+        else:
+            st.session_state.last_err = f"Error {resp.status_code}"
+    except Exception as e:
+        st.session_state.last_err = f"Fallo: {str(e)[:20]}"
     return None
 
 def sync_to_cloud():
-    if not URL_DOC: return
+    if not PROJECT_ID or not API_KEY: return
     st.session_state.data_timestamp = get_now_tucuman().strftime("%H:%M:%S")
     payload = {
         "groups": st.session_state.groups,
@@ -97,13 +101,15 @@ def sync_to_cloud():
         "data_timestamp": st.session_state.data_timestamp
     }
     try:
+        # Enviamos el documento completo para evitar errores de máscara
         body = {"fields": {"json_data": {"stringValue": json.dumps(payload)}}}
-        res = requests.patch(f"{URL_DOC}&updateMask.fieldPaths=json_data", json=body, timeout=10)
+        res = requests.patch(URL_DOC, json=body, timeout=10)
         if res.status_code == 200:
-            st.session_state.last_sync_status = f"✅ Subido {st.session_state.data_timestamp}"
+            st.session_state.last_sync_status = f"✅ Éxito {st.session_state.data_timestamp}"
             st.toast("✅ Nube Actualizada")
         else:
             st.session_state.last_sync_status = f"❌ Error {res.status_code}"
+            st.session_state.last_err = res.text[:50]
     except:
         st.session_state.last_sync_status = "❌ Sin conexión"
 
@@ -134,7 +140,7 @@ if 'initialized' not in st.session_state:
     st.session_state.start_date = datetime(2026, 3, 19).date()
     st.session_state.logged_in = False
     
-    # Carga silenciosa
+    # Carga inicial silenciosa
     data = load_from_cloud()
     if data:
         st.session_state.update(data)
@@ -242,6 +248,13 @@ else:
                         st.session_state.start_date = datetime.strptime(data.get("start_date"), "%Y-%m-%d").date()
                     st.session_state.last_sync_status = f"✅ OK {get_now_tucuman().strftime('%H:%M:%S')}"
                     st.rerun()
+        
+        with st.expander("🔍 RED Y LOGS"):
+            st.caption(f"Error: {st.session_state.get('last_err', 'Ninguno')}")
+            if st.button("🗑️ Reset Local"):
+                st.session_state.clear()
+                st.rerun()
+
         if st.button("🚪 SALIR"): st.session_state.logged_in = False; st.rerun()
 
     # Cabecera
