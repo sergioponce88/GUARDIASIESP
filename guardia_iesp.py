@@ -119,7 +119,7 @@ def save_cloud_data():
     except: pass
     return False
 
-# --- NÓMINA OFICIAL TOTAL ---
+# --- NÓMINA OFICIAL TOTAL (EXTRAÍDA DEL DOCX) ---
 def get_official_groups():
     return [
         {"id": "G1", "name": "GRUPO N° 1 de II° Año", "cadets": [
@@ -320,7 +320,6 @@ def get_processed_guard_for_date(date):
             
     for p in punishments:
         cad_p = p.copy()
-        # Se prioriza la función seleccionada en el módulo de castigo
         cad_p['nombre'] = f"⚖️ {cad_p['nombre']}"; cad_p['situacion'] = "GUARDIA CASTIGO"; processed.append(cad_p)
 
     for e in extras:
@@ -469,14 +468,6 @@ else:
                     st.session_state.removals[date_key].append(c_rem)
                     save_cloud_data(); st.rerun()
 
-        if date_key in st.session_state.removals and st.session_state.removals[date_key]:
-            with st.expander("🗑️ Ver Personal Quitado de esta Guardia"):
-                for idx_r, name_r in enumerate(st.session_state.removals[date_key]):
-                    c1, c2 = st.columns([4,1])
-                    c1.write(f"• {name_r}")
-                    if c2.button("Restablecer", key=f"re_btn_{idx_r}"):
-                        st.session_state.removals[date_key].pop(idx_r); save_cloud_data(); st.rerun()
-
     elif menu == "📋 Todas las Guardias":
         st.markdown("### 📋 Nóminas Permanentes (Word Oficial)")
         if st.button("⚠️ RESTABLECER TODA LA NÓMINA OFICIAL (WORD)", type="secondary", use_container_width=True):
@@ -500,14 +491,19 @@ else:
                 if st.button("AGREGAR CASTIGO"):
                     if pk_cast not in st.session_state.punishments: st.session_state.punishments[pk_cast] = []
                     new_p = all_cadets_registry[idx_p]['obj'].copy()
-                    new_p['funcion'] = role_p # Se asigna la función seleccionada
+                    new_p['funcion'] = role_p
                     st.session_state.punishments[pk_cast].append(new_p)
                     save_cloud_data(); st.rerun()
         with c2:
             st.write(f"**Personal en Castigo para {pk_cast}:**")
             if pk_cast in st.session_state.punishments:
-                for p in st.session_state.punishments[pk_cast]: 
-                    st.write(f"❌ {p['nombre']} - **{p['funcion']}**")
+                for idx_del, p in enumerate(st.session_state.punishments[pk_cast]): 
+                    col_p1, col_p2 = st.columns([4, 1])
+                    col_p1.write(f"❌ {p['nombre']} - **{p['funcion']}**")
+                    if col_p2.button("🗑️", key=f"del_cast_{idx_del}"):
+                        st.session_state.punishments[pk_cast].pop(idx_del)
+                        save_cloud_data()
+                        st.rerun()
 
     elif menu == "🔄 Intercambio":
         d_sw = st.date_input("Fecha Servicio", get_now_tucuman().date())
@@ -524,16 +520,8 @@ else:
         col1, col2 = st.columns(2)
         s_rep = col1.date_input("Desde", get_now_tucuman().date())
         e_rep = col2.date_input("Hasta", get_now_tucuman().date())
-        
         pdf_data = generate_pdf(s_rep, e_rep)
-        
-        st.download_button(
-            label="⬇️ DESCARGAR REPORTE PDF (OFICIAL)",
-            data=pdf_data,
-            file_name=f"Diagramacion_IESP_{s_rep}_al_{e_rep}.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
+        st.download_button(label="⬇️ DESCARGAR REPORTE PDF (OFICIAL)", data=pdf_data, file_name=f"Diagramacion_IESP_{s_rep}_al_{e_rep}.pdf", mime="application/pdf", use_container_width=True)
 
     elif menu == "👥 Redistribución":
         for i, g in enumerate(st.session_state.groups):
