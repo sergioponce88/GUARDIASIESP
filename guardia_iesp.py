@@ -91,10 +91,10 @@ def sync_to_cloud():
             st.session_state.last_sync = datetime.now().strftime("%H:%M:%S")
             st.toast("✅ Cambios Guardados en Google Cloud", icon="☁️")
         else: 
-            st.error(f"Error {res.status_code}: {res.text}")
+            st.error(f"Error {res.status_code}: REVISA LAS REGLAS DE FIREBASE")
     except: st.error("❌ Fallo crítico de red")
 
-# --- NÓMINA INSTITUCIONAL REAL ---
+# --- NÓMINA INSTITUCIONAL REAL COMPLETA ---
 DATOS_GRUPOS_BASE = [
     {"id": "G1", "name": "GRUPO N° 1 de II° Año", "cadets": [{"n": 1, "nombre": "Forales Emanuel", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Oliva Samuel", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}] + [{"n": i+3, "nombre": f"Cadete G1-{i+1}", "curso": "IIº Año", "funcion": "Cadete Apostado"} for i in range(12)]},
     {"id": "G2", "name": "GRUPO N° 2 de II° Año", "cadets": [{"n": 1, "nombre": "Mercado Marcelo", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Galván Maira", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Ibarra Martina", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Issa Tiara", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Medina Emilse", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Coronel Luis", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Cruz Braian", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Fernández Adrián", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Figueroa Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "González Ignacio", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "González Salomón Gonzalo", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Guevara Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Ibáñez Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 14, "nombre": "Jaime Christian", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
@@ -190,7 +190,7 @@ if not st.session_state.logged_in:
         st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
         st.image(ESCUDO_URL, width=150)
         st.markdown("<h2 style='text-align:center;'>CONTROL DE GUARDIA IESP</h2>", unsafe_allow_html=True)
-        pwd = st.text_input("PASSWORD", type="password")
+        pwd = st.text_input("CLAVE DE ACCESO", type="password")
         if st.button("INGRESAR"):
             if pwd == "iesp2026": st.session_state.logged_in = True; st.rerun()
             else: st.error("Denegado")
@@ -199,7 +199,7 @@ else:
     with st.sidebar:
         st.image(ESCUDO_URL, width=120)
         st.markdown(f"**SISTEMA OFICIAL 2026**")
-        if BASE_URL: st.success(f"☁️ Sincronizado\nSinc: {st.session_state.last_sync}")
+        if BASE_URL: st.success(f"☁️ Cloud Sinc\n{st.session_state.last_sync}")
         menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Traslados", "📂 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
         st.divider()
         if st.button("💾 GUARDAR CAMBIOS (NUBE)"): sync_to_cloud()
@@ -261,6 +261,7 @@ else:
                     sync_to_cloud(); st.rerun()
 
     elif menu == "📋 Todas las Guardias":
+        st.markdown("### 📋 Nóminas Completas")
         cols = st.columns(3)
         for i, g in enumerate(st.session_state.groups):
             with cols[i % 3]:
@@ -294,7 +295,7 @@ else:
                     for c in g['cadets']: all_l.append({"label": f"{c['nombre']} ({g['name']})", "obj": c, "oname": g['name']})
                 sel_c = st.selectbox("Cadete", range(len(all_l)), format_func=lambda x: all_l[x]['label'])
                 target_g = st.selectbox("Destino", [g['name'] for g in st.session_state.groups])
-                if st.button("REGISTRAR TRASLADO"):
+                if st.button("REGISTRAR"):
                     st.session_state.swaps.append({"date": str(sw_date), "cadet_id": all_l[sel_c]['obj']['nombre'], "cadet_obj": all_l[sel_c]['obj'], "orig_group": all_l[sel_c]['oname'], "target_group": target_g})
                     sync_to_cloud(); st.rerun()
         with cb:
@@ -314,7 +315,7 @@ else:
             with st.expander(f"Editar {g_red['name']}"):
                 df_red = pd.DataFrame(g_red['cadets'])
                 df_res = st.data_editor(df_red, num_rows="dynamic", key=f"ed_{i_red}", use_container_width=True)
-                if st.button(f"Guardar Cambios permanentemente en {g_red['id']}", key=f"btn_red_save_{i_red}"):
+                if st.button(f"Guardar {g_red['id']}", key=f"btn_red_save_{i_red}"):
                     st.session_state.groups[i_red]['cadets'] = df_res.to_dict('records'); sync_to_cloud(); st.rerun()
 
     elif menu == "⚙️ Ajustes":
