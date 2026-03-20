@@ -301,34 +301,34 @@ def get_processed_guard_for_date(date):
     day_removals = st.session_state.get('removals', {}).get(date_key, [])
 
     for c in base_group['cadets']:
-        c_name = c.get('nombre', '').strip()
+        c_name = str(c.get('nombre', '')).strip()
         if c_name in day_removals: continue
-        if any(s for s in st.session_state.swaps if s['cadet_id'] == c_name and s['date'] == date_key and s['orig_group'] == base_group['name']): continue
+        if any(s for s in st.session_state.swaps if str(s.get('cadet_id','')).strip() == c_name and s['date'] == date_key and s['orig_group'] == base_group['name']): continue
         
         cd = c.copy()
-        cd['situacion'] = day_st.get(c_name, "PRESENTE")
-        cd['funcion'] = day_ro.get(c_name, c.get('funcion'))
+        cd['situacion'] = str(day_st.get(c_name, "PRESENTE"))
+        cd['funcion'] = str(day_ro.get(c_name, c.get('funcion', '-')))
         if c_name in day_ov:
-            cd['nombre'] = f"🔄 {day_ov[c_name]['nombre']}"
+            cd['nombre'] = f"🔄 {str(day_ov[c_name].get('nombre', 'S/N'))}"
             cd['situacion'] = "REEMPLAZO"
         processed.append(cd)
 
     for s in st.session_state.swaps:
         if s['date'] == date_key and s['target_group'] == base_group['name']:
             cad_swap = s['cadet_obj'].copy()
-            cad_swap['nombre'] = f"⚡ {cad_swap['nombre']}"; cad_swap['situacion'] = f"INTERCAMBIO"; processed.append(cad_swap)
+            cad_swap['nombre'] = f"⚡ {str(cad_swap.get('nombre', 'S/N'))}"; cad_swap['situacion'] = f"INTERCAMBIO"; processed.append(cad_swap)
             
     for p in punishments:
         cad_p = p.copy()
-        cad_p['nombre'] = f"⚖️ {cad_p['nombre']}"; cad_p['situacion'] = "GUARDIA CASTIGO"; processed.append(cad_p)
+        cad_p['nombre'] = f"⚖️ {str(cad_p.get('nombre', 'S/N'))}"; cad_p['situacion'] = "GUARDIA CASTIGO"; processed.append(cad_p)
 
     for e in extras:
         cad_e = e.copy()
-        cad_e['nombre'] = f"➕ {cad_e['nombre']}"; cad_e['situacion'] = "REFUERZO"; processed.append(cad_e)
+        cad_e['nombre'] = f"➕ {str(cad_e.get('nombre', 'S/N'))}"; cad_e['situacion'] = "REFUERZO"; processed.append(cad_e)
             
     return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
 
-# --- GENERADOR DE PDF ---
+# --- GENERADOR DE PDF (BLINDADO CONTRA ATTRIBUTEERROR) ---
 def generate_pdf(start_date, end_date):
     pdf = FPDF()
     curr = start_date
@@ -355,12 +355,20 @@ def generate_pdf(start_date, end_date):
         pdf.set_font("Helvetica", '', 8)
         for i, c in enumerate(g_data['cadets']):
             pdf.cell(10, 7, str(i+1), 1, 0, 'C')
-            nombre_safe = c['nombre'].encode('latin-1', 'replace').decode('latin-1')
+            
+            # PROTECCIÓN SENIOR: str(val) asegura que nunca se llame a encode en un None
+            nombre_val = str(c.get('nombre', '-'))
+            nombre_safe = nombre_val.encode('latin-1', 'replace').decode('latin-1')
             pdf.cell(85, 7, nombre_safe, 1, 0, 'L')
-            funcion_safe = c['funcion'].encode('latin-1', 'replace').decode('latin-1')
+            
+            funcion_val = str(c.get('funcion', '-'))
+            funcion_safe = funcion_val.encode('latin-1', 'replace').decode('latin-1')
             pdf.cell(35, 7, funcion_safe, 1, 0, 'C')
-            situacion_safe = c['situacion'].encode('latin-1', 'replace').decode('latin-1')
+            
+            situacion_val = str(c.get('situacion', '-'))
+            situacion_safe = situacion_val.encode('latin-1', 'replace').decode('latin-1')
             pdf.cell(30, 7, situacion_safe, 1, 0, 'C')
+            
             pdf.cell(30, 7, "", 1, 1)
         
         curr += timedelta(days=1)
@@ -379,7 +387,7 @@ else:
     all_cadets_registry = []
     for g in st.session_state.groups:
         for c in g['cadets']:
-            all_cadets_registry.append({"nombre": c['nombre'], "grupo": g['name'], "curso": c['curso'], "obj": c})
+            all_cadets_registry.append({"nombre": str(c.get('nombre', 'S/N')), "grupo": g['name'], "curso": c.get('curso', '-'), "obj": c})
 
     with st.sidebar:
         st.markdown("<div class='logo-box'>CONTROL DE GUARDIA PRO<br><span style='font-size:0.7rem; font-weight:400;'>I.E.S.P. TUCUMÁN</span></div>", unsafe_allow_html=True)
@@ -410,16 +418,16 @@ else:
         m1, m2, m3 = st.columns(3)
         with m1: st.markdown(f"<div class='metric-card'><p>Guardia Hoy</p><h3>{gi['name']}</h3></div>", unsafe_allow_html=True)
         with m2: st.markdown(f"<div class='metric-card'><p>Efectivos</p><h3>{len(gi['cadets'])} Personal</h3></div>", unsafe_allow_html=True)
-        with m3: st.markdown(f"<div class='metric-card'><p>Novedades</p><h3>{sum(1 for c in gi['cadets'] if 'PRESENTE' not in c['situacion'])} Reportes</h3></div>", unsafe_allow_html=True)
+        with m3: st.markdown(f"<div class='metric-card'><p>Novedades</p><h3>{sum(1 for c in gi['cadets'] if 'PRESENTE' not in str(c.get('situacion','')))} Reportes</h3></div>", unsafe_allow_html=True)
         
         st.markdown(f"<div class='guard-header'><h3>📋 Listado de Guardia: {gi['name']}</h3></div>", unsafe_allow_html=True)
         
-        df_view = pd.DataFrame([{"Orden": i+1, "Nombre": f"{'✅' if 'PRESENTE' in c['situacion'] else '⚠️'} {c['nombre']}", "Rol": c['funcion'], "Situación": c['situacion']} for i, c in enumerate(gi['cadets'])])
+        df_view = pd.DataFrame([{"Orden": i+1, "Nombre": f"{'✅' if 'PRESENTE' in str(c.get('situacion','')) else '⚠️'} {str(c.get('nombre',''))}", "Rol": str(c.get('funcion','')), "Situación": str(c.get('situacion',''))} for i, c in enumerate(gi['cadets'])])
         st.dataframe(df_view, use_container_width=True, hide_index=True, height=400)
         
         st.markdown("### 🛠️ Herramientas de Mando Directo")
         ca, cf, cs, cx, cr = st.columns(5)
-        list_pure = [c['nombre'].replace("✅ ","").replace("⚠️ ","").replace("⚡ ","").replace("🔄 ","").replace("⚖️ ","").replace("➕ ","").strip() for c in gi['cadets']]
+        list_pure = [str(c.get('nombre','')).replace("✅ ","").replace("⚠️ ","").replace("⚡ ","").replace("🔄 ","").replace("⚖️ ","").replace("➕ ","").strip() for c in gi['cadets']]
         
         with ca:
             with st.container(border=True):
@@ -507,7 +515,7 @@ else:
             if pk_cast in st.session_state.punishments:
                 for idx_del, p in enumerate(st.session_state.punishments[pk_cast]): 
                     col_p1, col_p2 = st.columns([4, 1])
-                    col_p1.write(f"❌ {p['nombre']} - **{p['funcion']}**")
+                    col_p1.write(f"❌ {str(p.get('nombre',''))} - **{str(p.get('funcion',''))}**")
                     if col_p2.button("🗑️", key=f"del_cast_{idx_del}"):
                         st.session_state.punishments[pk_cast].pop(idx_del)
                         save_cloud_data(); st.rerun()
@@ -519,7 +527,7 @@ else:
         target_gb = st.selectbox("Grupo Destino", [g['name'] for g in st.session_state.groups], key="tgb")
         if st.button("EJECUTAR TRASPASO"):
             cad_a = st.session_state.groups[ga_idx]['cadets'][ca_idx]
-            st.session_state.swaps.append({"date": str(d_sw), "cadet_id": cad_a['nombre'], "cadet_obj": cad_a, "orig_group": st.session_state.groups[ga_idx]['name'], "target_group": target_gb})
+            st.session_state.swaps.append({"date": str(d_sw), "cadet_id": str(cad_a.get('nombre','')), "cadet_obj": cad_a, "orig_group": st.session_state.groups[ga_idx]['name'], "target_group": target_gb})
             save_cloud_data(); st.rerun()
 
     elif menu == "📊 Reportes PDF":
@@ -532,11 +540,8 @@ else:
 
     elif menu == "👥 Redistribución":
         st.markdown("### 👥 Gestión de Personal Permanente")
-        st.info("Utilice esta sección para cambios definitivos en la nómina de los grupos. Al agregar o quitar, el orden (N°) se recalibrará automáticamente.")
-        
         for i, g in enumerate(st.session_state.groups):
             with st.expander(f"📦 {g['name']}", expanded=(i==0)):
-                # Herramientas de edición rápida
                 col_e1, col_e2 = st.columns([2, 1])
                 with col_e1:
                     with st.popover(f"➕ Añadir nuevo efectivo a {g['id']}"):
@@ -544,33 +549,19 @@ else:
                         n_curso = st.selectbox("Curso", ["IIº Año", "IIIº Año"], key=f"nc_{i}")
                         n_role = st.text_input("Función", value="Cadete Apostado", key=f"nr_{i}")
                         if st.button("Guardar en Grupo", key=f"nb_{i}"):
-                            new_cadet = {"n": len(g['cadets'])+1, "nombre": n_name, "curso": n_curso, "funcion": n_role}
+                            new_cadet = {"n": len(g['cadets'])+1, "nombre": str(n_name), "curso": str(n_curso), "funcion": str(n_role)}
                             st.session_state.groups[i]['cadets'].append(new_cadet)
-                            save_cloud_data(); st.success("Agregado exitosamente."); st.rerun()
+                            save_cloud_data(); st.rerun()
                 
-                # Editor de la tabla existente
                 df_temp = pd.DataFrame(g['cadets'])
-                res = st.data_editor(
-                    df_temp, 
-                    num_rows="dynamic", 
-                    key=f"ed_grid_{i}", 
-                    use_container_width=True,
-                    column_config={
-                        "n": st.column_config.NumberColumn("N°", width="small", disabled=True),
-                        "nombre": "Apellido y Nombre",
-                        "curso": st.column_config.SelectboxColumn("Curso", options=["IIº Año", "IIIº Año"]),
-                        "funcion": "Función/Cargo"
-                    }
-                )
+                res = st.data_editor(df_temp, num_rows="dynamic", key=f"ed_grid_{i}", use_container_width=True)
                 
                 if st.button(f"💾 Confirmar cambios en {g['id']}", key=f"btn_save_{i}"):
                     updated_list = res.to_dict('records')
-                    # Recalcular N° de orden automáticamente para mantener la prolijidad
                     for idx, cad in enumerate(updated_list):
                         cad['n'] = idx + 1
                     st.session_state.groups[i]['cadets'] = updated_list
-                    save_cloud_data()
-                    st.success("Cambios permanentes guardados y sincronizados."); st.rerun()
+                    save_cloud_data(); st.rerun()
 
     elif menu == "⚙️ Ajustes":
         st.session_state.start_date = st.date_input("Inicio del Ciclo", st.session_state.start_date)
