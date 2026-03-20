@@ -119,7 +119,7 @@ def save_cloud_data():
     except: pass
     return False
 
-# --- NÓMINA OFICIAL TOTAL ---
+# --- NÓMINA OFICIAL TOTAL (EXTRAÍDA DEL DOCX) ---
 def get_official_groups():
     return [
         {"id": "G1", "name": "GRUPO N° 1 de II° Año", "cadets": [
@@ -328,15 +328,15 @@ def get_processed_guard_for_date(date):
             
     return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
 
-# --- GENERADOR DE PDF OPERATIVO ---
+# --- GENERADOR DE PDF (CORREGIDO Y OPTIMIZADO) ---
 def generate_pdf(start_date, end_date):
     pdf = FPDF()
     curr = start_date
     while curr <= end_date:
         pdf.add_page()
-        # Encabezado
+        # Encabezado Institucional
         pdf.set_font("Helvetica", 'B', 14)
-        pdf.cell(190, 8, "INSTITUTO DE ENSEÑANZA SUPERIOR DE POLICIA", 0, 1, 'C')
+        pdf.cell(190, 10, "INSTITUTO DE ENSEÑANZA SUPERIOR DE POLICIA", 0, 1, 'C')
         pdf.set_font("Helvetica", '', 10)
         pdf.cell(190, 6, f"DIAGRAMACION OPERATIVA DE GUARDIA - FECHA: {curr.strftime('%d/%m/%Y')}", 0, 1, 'C')
         
@@ -345,29 +345,31 @@ def generate_pdf(start_date, end_date):
         pdf.set_font("Helvetica", 'B', 12)
         pdf.cell(190, 10, f"SERVICIO EN TURNO: {g_data['name']}", 0, 1, 'L')
         
-        # Tabla
+        # Tabla de Nómina
         pdf.set_fill_color(230, 230, 230)
         pdf.set_font("Helvetica", 'B', 9)
         pdf.cell(10, 8, "N", 1, 0, 'C', True)
-        pdf.cell(80, 8, "Apellido y Nombre", 1, 0, 'C', True)
-        pdf.cell(40, 8, "Funcion", 1, 0, 'C', True)
+        pdf.cell(85, 8, "Apellido y Nombre", 1, 0, 'C', True)
+        pdf.cell(35, 8, "Funcion", 1, 0, 'C', True)
         pdf.cell(30, 8, "Situacion", 1, 0, 'C', True)
         pdf.cell(30, 8, "Firma", 1, 1, 'C', True)
         
         pdf.set_font("Helvetica", '', 8)
         for i, c in enumerate(g_data['cadets']):
             pdf.cell(10, 7, str(i+1), 1, 0, 'C')
-            # Sanitizar nombres para PDF
-            nombre_pdf = c['nombre'].encode('latin-1', 'replace').decode('latin-1')
-            pdf.cell(80, 7, nombre_pdf, 1, 0, 'L')
-            funcion_pdf = c['funcion'].encode('latin-1', 'replace').decode('latin-1')
-            pdf.cell(40, 7, funcion_pdf, 1, 0, 'C')
-            situacion_pdf = c['situacion'].encode('latin-1', 'replace').decode('latin-1')
-            pdf.cell(30, 7, situacion_pdf, 1, 0, 'C')
+            # Sanitización de caracteres para evitar crash en PDF
+            nombre_safe = c['nombre'].encode('latin-1', 'replace').decode('latin-1')
+            pdf.cell(85, 7, nombre_safe, 1, 0, 'L')
+            funcion_safe = c['funcion'].encode('latin-1', 'replace').decode('latin-1')
+            pdf.cell(35, 7, funcion_safe, 1, 0, 'C')
+            situacion_safe = c['situacion'].encode('latin-1', 'replace').decode('latin-1')
+            pdf.cell(30, 7, situacion_safe, 1, 0, 'C')
             pdf.cell(30, 7, "", 1, 1)
         
         curr += timedelta(days=1)
-    return pdf.output()
+    
+    # IMPORTANTE: Devolver bytes puros para Streamlit
+    return bytes(pdf.output())
 
 # --- INTERFAZ ---
 if not st.session_state.get('logged_in', False):
@@ -504,7 +506,8 @@ else:
         with c2:
             st.write(f"**Personal en Castigo para {pk_cast}:**")
             if pk_cast in st.session_state.punishments:
-                for p in st.session_state.punishments[pk_cast]: st.write(f"❌ {p['nombre']} ({p['curso']})")
+                for p in st.session_state.punishments[pk_cast]: 
+                    st.write(f"❌ {p['nombre']} ({p['curso']})")
 
     elif menu == "🔄 Intercambio":
         d_sw = st.date_input("Fecha Servicio", get_now_tucuman().date())
@@ -518,21 +521,23 @@ else:
 
     elif menu == "📊 Reportes PDF":
         st.markdown("### 📊 Generador de Diagramaciones Oficiales")
+        st.write("Seleccione el rango de fechas. El sistema generará el PDF y habilitará el botón de descarga automática.")
         col1, col2 = st.columns(2)
         s_rep = col1.date_input("Desde", get_now_tucuman().date())
         e_rep = col2.date_input("Hasta", get_now_tucuman().date())
         
-        if st.button("🚀 GENERAR PLANILLA PDF"):
-            with st.spinner("Generando reporte..."):
-                pdf_bytes = generate_pdf(s_rep, e_rep)
-                st.download_button(
-                    label="⬇️ DESCARGAR ARCHIVO PDF",
-                    data=pdf_bytes,
-                    file_name=f"Diagramacion_IESP_{s_rep}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
-                st.success("Reporte generado con éxito.")
+        # MOTOR SENIOR: Generación directa en el botón de descarga
+        # Esto evita el error de anidamiento y el crash de tipo de datos
+        pdf_data = generate_pdf(s_rep, e_rep)
+        
+        st.download_button(
+            label="⬇️ DESCARGAR REPORTE PDF (OFICIAL)",
+            data=pdf_data,
+            file_name=f"Diagramacion_IESP_{s_rep}_al_{e_rep}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+        st.info("Nota: El reporte incluye todas las novedades actuales de la nube.")
 
     elif menu == "👥 Redistribución":
         for i, g in enumerate(st.session_state.groups):
