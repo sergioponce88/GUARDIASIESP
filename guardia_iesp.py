@@ -42,12 +42,13 @@ def inject_modern_css():
             width: 100% !important; text-transform: uppercase; letter-spacing: 0.5px;
         }
         [data-testid="stDataFrame"] > div { border: none !important; border-radius: 20px !important; }
+        .stExpander { border-radius: 20px !important; border: 1px solid #f1f5f9 !important; background: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
 inject_modern_css()
 
-# --- MOTOR DE SINCRONIZACIÓN CLOUD (PERSISTENCIA REAL) ---
+# --- MOTOR DE SINCRONIZACIÓN CLOUD ---
 def get_cloud_params():
     try:
         conf = json.loads(st.secrets["__firebase_config"])
@@ -60,7 +61,6 @@ BASE_URL = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases
 def load_from_cloud():
     if not BASE_URL or not API_KEY: return None
     try:
-        # Bypass de caché dinámico para sincronización instantánea
         url = f"{BASE_URL}/persistence/current_state?key={API_KEY}&refresh={time.time()}"
         resp = requests.get(url, timeout=10)
         if resp.status_code == 200:
@@ -89,11 +89,12 @@ def sync_to_cloud():
         res = requests.patch(url, json=body, timeout=10)
         if res.status_code == 200:
             st.session_state.last_sync = datetime.now().strftime("%H:%M:%S")
-            st.toast("✅ Nube Sincronizada", icon="☁️")
-        else: st.error(f"Error servidor: {res.status_code}. Verifique API KEY.")
+            st.toast("✅ Cambios Guardados en Google Cloud", icon="☁️")
+        else: 
+            st.error(f"Error {res.status_code}: {res.text}")
     except: st.error("❌ Fallo crítico de red")
 
-# --- NÓMINA INSTITUCIONAL COMPLETA (138 CADETES) ---
+# --- NÓMINA INSTITUCIONAL REAL ---
 DATOS_GRUPOS_BASE = [
     {"id": "G1", "name": "GRUPO N° 1 de II° Año", "cadets": [{"n": 1, "nombre": "Forales Emanuel", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Oliva Samuel", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}] + [{"n": i+3, "nombre": f"Cadete G1-{i+1}", "curso": "IIº Año", "funcion": "Cadete Apostado"} for i in range(12)]},
     {"id": "G2", "name": "GRUPO N° 2 de II° Año", "cadets": [{"n": 1, "nombre": "Mercado Marcelo", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Galván Maira", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Ibarra Martina", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Issa Tiara", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Medina Emilse", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Coronel Luis", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Cruz Braian", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Fernández Adrián", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Figueroa Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "González Ignacio", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "González Salomón Gonzalo", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Guevara Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Ibáñez Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 14, "nombre": "Jaime Christian", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
@@ -127,7 +128,6 @@ def get_processed_guard_for_date(date):
     base_group = st.session_state.groups[idx]
     date_key = str(date)
     processed = []
-    
     day_ov = st.session_state.overrides.get(date_key, {})
     day_st = st.session_state.statuses.get(date_key, {})
     day_ro = st.session_state.role_overrides.get(date_key, {})
@@ -154,24 +154,22 @@ def get_processed_guard_for_date(date):
             processed.append(cad_swap)
     return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
 
-# --- REPORTES PDF CON LOGO ---
+# --- REPORTES PDF ---
 def generate_pdf(start_date, end_date):
     pdf = FPDF()
     curr = start_date
     while curr <= end_date:
         pdf.add_page()
         try:
-            if os.path.exists(LOGO_LOCAL): pdf.image(LOGO_LOCAL, 10, 8, 25)
-            else: 
-                img_data = requests.get(ESCUDO_URL).content
-                with open("temp.png", "wb") as f: f.write(img_data)
-                pdf.image("temp.png", 10, 8, 25)
+            img_data = requests.get(ESCUDO_URL).content
+            with open("temp_logo.png", "wb") as f: f.write(img_data)
+            pdf.image("temp_logo.png", 10, 8, 25)
         except: pass
         pdf.set_y(15); pdf.set_font("helvetica", 'B', 16); pdf.cell(190, 8, "INSTITUTO DE ENSEÑANZA SUPERIOR DE POLICIA", align='C', ln=True)
         pdf.set_font("helvetica", '', 11); pdf.cell(190, 6, f"DIAGRAMACIÓN DE GUARDIA - {curr.strftime('%d/%m/%Y')}", align='C', ln=True)
         g_data = get_processed_guard_for_date(curr)
         pdf.ln(10); pdf.set_font("helvetica", 'B', 12); pdf.cell(190, 10, f"GRUPO: {g_data['name']}", ln=True)
-        pdf.set_fill_color(230, 230, 230); headers = ["N", "Nombre y Apellido", "Funcion", "Situacion", "Firma"]
+        pdf.set_fill_color(230, 230, 230); headers = ["N", "Apellido y Nombre", "Funcion", "Situacion", "Firma"]
         cols = [10, 60, 40, 40, 40]
         for h, w in zip(headers, cols): pdf.cell(w, 10, h, 1, align='C', fill=True)
         pdf.ln(); pdf.set_font("helvetica", '', 9)
@@ -184,14 +182,14 @@ def generate_pdf(start_date, end_date):
         curr += timedelta(days=1)
     return bytes(pdf.output())
 
-# --- INTERFAZ ---
+# --- LOGIN ---
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 if not st.session_state.logged_in:
     _, col_log, _ = st.columns([1, 1.4, 1])
     with col_log:
         st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
         st.image(ESCUDO_URL, width=150)
-        st.markdown("<h2 style='text-align:center;'>ACCESO GUARDIA IESP</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align:center;'>CONTROL DE GUARDIA IESP</h2>", unsafe_allow_html=True)
         pwd = st.text_input("PASSWORD", type="password")
         if st.button("INGRESAR"):
             if pwd == "iesp2026": st.session_state.logged_in = True; st.rerun()
@@ -201,7 +199,7 @@ else:
     with st.sidebar:
         st.image(ESCUDO_URL, width=120)
         st.markdown(f"**SISTEMA OFICIAL 2026**")
-        if BASE_URL: st.success(f"☁️ Cloud Sinc\n{st.session_state.last_sync}")
+        if BASE_URL: st.success(f"☁️ Sincronizado\nSinc: {st.session_state.last_sync}")
         menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Traslados", "📂 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
         st.divider()
         if st.button("💾 GUARDAR CAMBIOS (NUBE)"): sync_to_cloud()
@@ -217,24 +215,20 @@ else:
 
     header_col1, header_col2 = st.columns([1, 8])
     with header_col1: st.image(ESCUDO_URL, width=80)
-    with header_col2: st.markdown("""<h1 style="color:#0f172a; font-weight:800; margin:0; padding-top:10px;">Diagramación de Guardia Sincronizada</h1>""", unsafe_allow_html=True)
+    with header_col2: st.markdown("""<h1 style="color:#0f172a; font-weight:800; margin:0; padding-top:10px;">Gestión de Guardia IESP</h1>""", unsafe_allow_html=True)
 
     if menu == "🏠 Dashboard":
-        sel_date = st.date_input("FECHA", datetime.now().date(), key="dash_date"); date_key = str(sel_date)
+        sel_date = st.date_input("FECHA SELECCIONADA", datetime.now().date(), key="dash_date"); date_key = str(sel_date)
         gi = get_processed_guard_for_date(sel_date)
-        
         c1, c2, c3 = st.columns(3)
-        with c1: st.markdown(f"<div class='metric-card'><b>Guardia Hoy</b><br>{gi['name']}</div>", unsafe_allow_html=True)
+        with c1: st.markdown(f"<div class='metric-card'><b>Guardia Actual</b><br>{gi['name']}</div>", unsafe_allow_html=True)
         with c2: st.markdown(f"<div class='metric-card'><b>Efectivos</b><br>{len(gi['cadets'])}</div>", unsafe_allow_html=True)
         with c3: st.markdown(f"<div class='metric-card'><b>Novedades</b><br>{sum(1 for c in gi['cadets'] if 'PRESENTE' not in c['situacion'])}</div>", unsafe_allow_html=True)
         
-        df_dash = pd.DataFrame([{"N°": i+1, "Nombre": f"{'✅' if 'PRESENTE' in c['situacion'] or 'SUPLENTE' in c['situacion'] else '⚠️'} {c['nombre']}", "Función": c['funcion'], "Situación": c['situacion']} for i, c in enumerate(gi['cadets'])])
-        st.dataframe(df_dash, use_container_width=True, hide_index=True, height=(len(df_dash)+1)*35+10)
+        st.dataframe(pd.DataFrame([{"N°": i+1, "Nombre": f"{'✅' if 'PRESENTE' in c['situacion'] or 'SUPLENTE' in c['situacion'] else '⚠️'} {c['nombre']}", "Función": c['funcion'], "Situación": c['situacion']} for i, c in enumerate(gi['cadets'])]), use_container_width=True, hide_index=True, height=(len(gi['cadets'])+1)*35+10)
         
-        # --- FORMULARIOS DASHBOARD ---
         col1, col2, col3 = st.columns(3)
         list_pure = [c['nombre'].replace("🔄 ","").replace("✅ ","").replace("⚠️ ","").replace("⚡ ","").strip() for c in gi['cadets']]
-        
         with col1:
             with st.container(border=True):
                 st.write("**📝 Asistencia**")
@@ -267,10 +261,9 @@ else:
                     sync_to_cloud(); st.rerun()
 
     elif menu == "📋 Todas las Guardias":
-        st.markdown("### 📋 Nóminas Completas del Personal")
-        cols_all = st.columns(3)
+        cols = st.columns(3)
         for i, g in enumerate(st.session_state.groups):
-            with cols_all[i % 3]:
+            with cols[i % 3]:
                 with st.container(border=True):
                     st.markdown(f"#### {g['name']}")
                     st.dataframe(pd.DataFrame(g['cadets'])[["nombre", "curso", "funcion"]], hide_index=True, use_container_width=True)
@@ -282,11 +275,10 @@ else:
             with st.container(border=True):
                 g_idx = st.selectbox("Grupo Origen", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'])
                 c_idx = st.selectbox("Cadete", range(len(st.session_state.groups[g_idx]['cadets'])), format_func=lambda x: st.session_state.groups[g_idx]['cadets'][x]['nombre'])
-                if st.button("AGREGAR REFUERZO"):
+                if st.button("AGREGAR"):
                     if pk_cast not in st.session_state.punishments: st.session_state.punishments[pk_cast] = []
                     st.session_state.punishments[pk_cast].append(st.session_state.groups[g_idx]['cadets'][c_idx]); sync_to_cloud(); st.rerun()
         with cb:
-            st.write(f"**Refuerzos para {pk_cast}**")
             if pk_cast in st.session_state.punishments:
                 for idx_p, p_item in enumerate(st.session_state.punishments[pk_cast]):
                     c1, c2 = st.columns([4, 1]); c1.write(f"• {p_item['nombre']}"); 
@@ -301,8 +293,8 @@ else:
                 for g in st.session_state.groups:
                     for c in g['cadets']: all_l.append({"label": f"{c['nombre']} ({g['name']})", "obj": c, "oname": g['name']})
                 sel_c = st.selectbox("Cadete", range(len(all_l)), format_func=lambda x: all_l[x]['label'])
-                target_g = st.selectbox("Guardia Destino", [g['name'] for g in st.session_state.groups])
-                if st.button("REGISTRAR"):
+                target_g = st.selectbox("Destino", [g['name'] for g in st.session_state.groups])
+                if st.button("REGISTRAR TRASLADO"):
                     st.session_state.swaps.append({"date": str(sw_date), "cadet_id": all_l[sel_c]['obj']['nombre'], "cadet_obj": all_l[sel_c]['obj'], "orig_group": all_l[sel_c]['oname'], "target_group": target_g})
                     sync_to_cloud(); st.rerun()
         with cb:
@@ -315,7 +307,7 @@ else:
         e_rep = st.date_input("Hasta", datetime.now().date(), key="rep_e")
         if st.button("🚀 GENERAR PDF"):
             pdf_bytes = generate_pdf(s_rep, e_rep)
-            st.download_button("⬇️ DESCARGAR PLANILLAS", pdf_bytes, f"Guardias_{s_rep}.pdf", "application/pdf")
+            st.download_button("⬇️ DESCARGAR", pdf_bytes, f"Guardias_{s_rep}.pdf", "application/pdf")
 
     elif menu == "👥 Redistribución":
         for i_red, g_red in enumerate(st.session_state.groups):
@@ -326,6 +318,6 @@ else:
                     st.session_state.groups[i_red]['cadets'] = df_res.to_dict('records'); sync_to_cloud(); st.rerun()
 
     elif menu == "⚙️ Ajustes":
-        new_start = st.date_input("Inicio de Ciclo Operativo", st.session_state.start_date)
+        new_start = st.date_input("Inicio de Ciclo", st.session_state.start_date)
         if st.button("GUARDAR CONFIGURACIÓN"):
             st.session_state.start_date = new_start; sync_to_cloud(); st.success("Ajustado")
