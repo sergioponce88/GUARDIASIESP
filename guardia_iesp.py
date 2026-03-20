@@ -108,15 +108,14 @@ def save_cloud_data():
         "swaps": st.session_state.swaps,
         "punishments": st.session_state.punishments,
         "extra_cadets": st.session_state.extra_cadets,
+        "removals": st.session_state.removals,
         "start_date": str(st.session_state.start_date),
         "data_timestamp": st.session_state.data_timestamp
     }
     try:
         body = {"fields": {"json_data": {"stringValue": json.dumps(payload)}}}
         r = requests.patch(URL_BASE, json=body, timeout=12)
-        if r.status_code == 200:
-            st.session_state.last_sync_status = f"✅ Sincronizado {st.session_state.data_timestamp}"
-            return True
+        return r.status_code == 200
     except: pass
     return False
 
@@ -272,7 +271,7 @@ if 'initialized' not in st.session_state:
     st.session_state.groups = get_official_groups()
     st.session_state.statuses, st.session_state.overrides = {}, {}
     st.session_state.role_overrides, st.session_state.swaps, st.session_state.punishments = {}, [], {}
-    st.session_state.extra_cadets = {}
+    st.session_state.extra_cadets, st.session_state.removals = {}, {}
     st.session_state.start_date = datetime(2026, 3, 19).date()
     st.session_state.logged_in = False
     
@@ -280,7 +279,6 @@ if 'initialized' not in st.session_state:
     if data:
         cloud_groups = data.get("groups", [])
         if len(cloud_groups) > 0 and len(cloud_groups[0].get("cadets", [])) < 10:
-            st.warning("⚠️ Nómina antigua detectada. Cargando lista del Word...")
             st.session_state.groups = get_official_groups()
         else:
             for k, v in data.items():
@@ -300,10 +298,15 @@ def get_processed_guard_for_date(date):
     day_ro = st.session_state.get('role_overrides', {}).get(date_key, {})
     punishments = st.session_state.get('punishments', {}).get(date_key, [])
     extras = st.session_state.get('extra_cadets', {}).get(date_key, [])
+    day_removals = st.session_state.get('removals', {}).get(date_key, [])
 
     for c in base_group['cadets']:
         c_name = c.get('nombre', '').strip()
+        # REGLA: Si el cadete fue quitado, no se incluye en el listado
+        if c_name in day_removals: continue
+        # Verificar Intercambio Saliente
         if any(s for s in st.session_state.swaps if s['cadet_id'] == c_name and s['date'] == date_key and s['orig_group'] == base_group['name']): continue
+        
         cd = c.copy()
         cd['situacion'] = day_st.get(c_name, "PRESENTE")
         cd['funcion'] = day_ro.get(c_name, c.get('funcion'))
@@ -315,19 +318,15 @@ def get_processed_guard_for_date(date):
     for s in st.session_state.swaps:
         if s['date'] == date_key and s['target_group'] == base_group['name']:
             cad_swap = s['cadet_obj'].copy()
-            cad_swap['nombre'] = f"⚡ {cad_swap['nombre']}"
-            cad_swap['situacion'] = f"INTERCAMBIO"
-            processed.append(cad_swap)
+            cad_swap['nombre'] = f"⚡ {cad_swap['nombre']}"; cad_swap['situacion'] = f"INTERCAMBIO"; processed.append(cad_swap)
             
     for p in punishments:
         cad_p = p.copy()
-        cad_p['nombre'] = f"⚖️ {cad_p['nombre']}"; cad_p['situacion'] = "GUARDIA CASTIGO"
-        processed.append(cad_p)
+        cad_p['nombre'] = f"⚖️ {cad_p['nombre']}"; cad_p['situacion'] = "GUARDIA CASTIGO"; processed.append(cad_p)
 
     for e in extras:
         cad_e = e.copy()
-        cad_e['nombre'] = f"➕ {cad_e['nombre']}"; cad_e['situacion'] = "REFUERZO"
-        processed.append(cad_e)
+        cad_e['nombre'] = f"➕ {cad_e['nombre']}"; cad_e['situacion'] = "REFUERZO"; processed.append(cad_e)
             
     return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
 
@@ -341,14 +340,13 @@ if not st.session_state.get('logged_in', False):
         if st.button("INGRESAR"):
             if pwd == "iesp2026": st.session_state.logged_in = True; st.rerun()
 else:
-    # REGISTRO GLOBAL PARA BUSCADORES
     all_cadets_registry = []
     for g in st.session_state.groups:
         for c in g['cadets']:
             all_cadets_registry.append({"nombre": c['nombre'], "grupo": g['name'], "curso": c['curso'], "obj": c})
 
     with st.sidebar:
-        st.markdown("<div class='logo-box'>CONTROL DE GUARDIA<br><span style='font-size:0.7rem; font-weight:400;'>I.E.S.P. TUCUMÁN</span></div>", unsafe_allow_html=True)
+        st.markdown("<div class='logo-box'>CONTROL DE GUARDIA PRO<br><span style='font-size:0.7rem; font-weight:400;'>I.E.S.P. TUCUMÁN</span></div>", unsafe_allow_html=True)
         st.info(f"🕒 **Sello Nube:**\n`{st.session_state.get('data_timestamp', '00:00:00')}`")
         st.success(f"☁️ **Estado:**\n`{st.session_state.get('last_sync_status', 'Conectado')}`")
         st.divider()
@@ -362,7 +360,7 @@ else:
                 for k, v in data.items():
                     if k == "start_date": st.session_state[k] = datetime.strptime(v, "%Y-%m-%d").date()
                     else: st.session_state[k] = v
-                st.session_state.last_sync_status = f"✅ Sinc: {get_now_tucuman().strftime('%H:%M:%S')}"
+                st.session_state.last_sync_status = f"✅ Actualizado {get_now_tucuman().strftime('%H:%M:%S')}"
                 st.rerun()
         if st.button("🚪 SALIR"): st.session_state.logged_in = False; st.rerun()
 
@@ -378,70 +376,77 @@ else:
         with m2: st.markdown(f"<div class='metric-card'><p>Efectivos</p><h3>{len(gi['cadets'])} Personal</h3></div>", unsafe_allow_html=True)
         with m3: st.markdown(f"<div class='metric-card'><p>Novedades</p><h3>{sum(1 for c in gi['cadets'] if 'PRESENTE' not in c['situacion'])} Reportes</h3></div>", unsafe_allow_html=True)
         
-        # --- ENCABEZADO DE TURNO DINÁMICO ---
-        st.markdown(f"""
-            <div class='guard-header'>
-                <h3>📋 Listado de Guardia: {gi['name']}</h3>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"<div class='guard-header'><h3>📋 Listado de Guardia: {gi['name']}</h3></div>", unsafe_allow_html=True)
         
         df_view = pd.DataFrame([{"Orden": i+1, "Nombre": f"{'✅' if 'PRESENTE' in c['situacion'] else '⚠️'} {c['nombre']}", "Rol": c['funcion'], "Situación": c['situacion']} for i, c in enumerate(gi['cadets'])])
-        st.dataframe(df_view, use_container_width=True, hide_index=True, height=450)
+        st.dataframe(df_view, use_container_width=True, hide_index=True, height=400)
         
         st.markdown("### 🛠️ Herramientas de Mando Directo")
-        ca, cf, cs, cx = st.columns(4)
+        # --- AHORA SON 5 COLUMNAS ---
+        ca, cf, cs, cx, cr = st.columns(5)
         list_pure = [c['nombre'].replace("✅ ","").replace("⚠️ ","").replace("⚡ ","").replace("🔄 ","").replace("⚖️ ","").replace("➕ ","").strip() for c in gi['cadets']]
         
         with ca:
             with st.container(border=True):
                 st.write("**📝 Asistencia**")
-                c_as = st.selectbox("Personal en Lista", list_pure, key="as_s")
+                c_as = st.selectbox("Efectivo", list_pure, key="as_s")
                 n_st = st.selectbox("Estado", ["PRESENTE", "FRANCO", "A.R.T.", "AUSENTE", "NOTA MÉDICA"], key="st_s")
-                if st.button("Fijar Estado"):
+                if st.button("Fijar"):
                     if date_key not in st.session_state.statuses: st.session_state.statuses[date_key] = {}
                     st.session_state.statuses[date_key][c_as] = n_st
                     save_cloud_data(); st.rerun()
         with cf:
             with st.container(border=True):
-                st.write("**🎭 Modificar Función**")
-                c_fu = st.selectbox("Personal en Lista", list_pure, key="fu_s")
-                n_fu = st.text_input("Nuevo Rol", placeholder="Ej: Centinela", key="fu_v")
-                if st.button("Asignar Rol"):
+                st.write("**🎭 Función**")
+                c_fu = st.selectbox("Efectivo", list_pure, key="fu_s")
+                n_fu = st.text_input("Rol", placeholder="Centinela", key="fu_v")
+                if st.button("Asignar"):
                     if date_key not in st.session_state.role_overrides: st.session_state.role_overrides[date_key] = {}
                     st.session_state.role_overrides[date_key][c_fu] = n_fu
                     save_cloud_data(); st.rerun()
         with cs:
             with st.container(border=True):
-                st.write("**🔄 Aplicar Suplencia**")
+                st.write("**🔄 Suplencia**")
                 tit = st.selectbox("Titular", list_pure, key="su_s")
-                idx_sup = st.selectbox("Suplente", range(len(all_cadets_registry)), 
-                                        format_func=lambda x: f"{all_cadets_registry[x]['nombre']} ({all_cadets_registry[x]['grupo']})", key="su_all")
-                if st.button("Ejecutar Cambio"):
+                idx_sup = st.selectbox("Suplente", range(len(all_cadets_registry)), format_func=lambda x: f"{all_cadets_registry[x]['nombre']} ({all_cadets_registry[x]['grupo']})", key="su_all")
+                if st.button("Reemplazar"):
                     if date_key not in st.session_state.overrides: st.session_state.overrides[date_key] = {}
                     st.session_state.overrides[date_key][tit] = all_cadets_registry[idx_sup]['obj']
                     save_cloud_data(); st.rerun()
         with cx:
             with st.container(border=True):
-                st.write("**➕ Sumar Personal**")
-                idx_ex = st.selectbox("Refuerzo", range(len(all_cadets_registry)),
-                                       format_func=lambda x: f"{all_cadets_registry[x]['nombre']} ({all_cadets_registry[x]['grupo']})", key="ex_all")
-                ex_rol = st.text_input("Rol Refuerzo", value="Refuerzo", key="ex_rol")
-                if st.button("Sumar a Guardia"):
+                st.write("**➕ Refuerzo**")
+                idx_ex = st.selectbox("Sumar", range(len(all_cadets_registry)), format_func=lambda x: f"{all_cadets_registry[x]['nombre']} ({all_cadets_registry[x]['grupo']})", key="ex_all")
+                ex_rol = st.text_input("Cargo", value="Refuerzo", key="ex_rol")
+                if st.button("Sumar"):
                     if date_key not in st.session_state.extra_cadets: st.session_state.extra_cadets[date_key] = []
                     new_ex = all_cadets_registry[idx_ex]['obj'].copy()
                     new_ex['funcion'] = ex_rol
                     st.session_state.extra_cadets[date_key].append(new_ex)
                     save_cloud_data(); st.rerun()
+        with cr:
+            with st.container(border=True):
+                st.write("**❌ Quitar**")
+                c_rem = st.selectbox("Baja de Lista", list_pure, key="rem_s")
+                if st.button("Quitar"):
+                    if date_key not in st.session_state.removals: st.session_state.removals[date_key] = []
+                    st.session_state.removals[date_key].append(c_rem)
+                    save_cloud_data(); st.rerun()
+
+        # --- LOG DE PERSONAL QUITADO ---
+        if date_key in st.session_state.removals and st.session_state.removals[date_key]:
+            with st.expander("🗑️ Ver Personal Quitado de esta Guardia"):
+                for idx_r, name_r in enumerate(st.session_state.removals[date_key]):
+                    c1, c2 = st.columns([4,1])
+                    c1.write(f"• {name_r}")
+                    if c2.button("Restablecer", key=f"re_btn_{idx_r}"):
+                        st.session_state.removals[date_key].pop(idx_r); save_cloud_data(); st.rerun()
 
     elif menu == "📋 Todas las Guardias":
         st.markdown("### 📋 Nóminas Permanentes (Word Oficial)")
-        
         if st.button("⚠️ RESTABLECER TODA LA NÓMINA OFICIAL (WORD)", type="secondary", use_container_width=True):
             st.session_state.groups = get_official_groups()
-            save_cloud_data()
-            st.success("Lista oficial del Word cargada con éxito.")
-            st.rerun()
-            
+            save_cloud_data(); st.success("Lista oficial del Word cargada con éxito."); st.rerun()
         st.divider()
         cols = st.columns(3)
         for i, g in enumerate(st.session_state.groups):
@@ -454,8 +459,7 @@ else:
         c1, c2 = st.columns(2)
         with c1:
             with st.container(border=True):
-                idx_p = st.selectbox("Sancionado", range(len(all_cadets_registry)),
-                                      format_func=lambda x: f"{all_cadets_registry[x]['nombre']} ({all_cadets_registry[x]['grupo']})")
+                idx_p = st.selectbox("Sancionado", range(len(all_cadets_registry)), format_func=lambda x: f"{all_cadets_registry[x]['nombre']} ({all_cadets_registry[x]['grupo']})")
                 if st.button("AGREGAR CASTIGO"):
                     if pk_cast not in st.session_state.punishments: st.session_state.punishments[pk_cast] = []
                     st.session_state.punishments[pk_cast].append(all_cadets_registry[idx_p]['obj'])
@@ -463,8 +467,7 @@ else:
         with c2:
             st.write(f"**Personal en Castigo para {pk_cast}:**")
             if pk_cast in st.session_state.punishments:
-                for p in st.session_state.punishments[pk_cast]: 
-                    st.write(f"❌ {p['nombre']} ({p['curso']})")
+                for p in st.session_state.punishments[pk_cast]: st.write(f"❌ {p['nombre']} ({p['curso']})")
 
     elif menu == "🔄 Intercambio":
         d_sw = st.date_input("Fecha Servicio", get_now_tucuman().date())
@@ -480,7 +483,7 @@ else:
         for i, g in enumerate(st.session_state.groups):
             with st.expander(f"Editar {g['name']}"):
                 res = st.data_editor(pd.DataFrame(g['cadets']), num_rows="dynamic", key=f"ed_grid_{i}", use_container_width=True)
-                if st.button(f"Confirmar {g['id']}", key=f"btn_save_{i}"):
+                if st.button(f"Confirmar en {g['id']}", key=f"btn_save_{i}"):
                     st.session_state.groups[i]['cadets'] = res.to_dict('records'); save_cloud_data(); st.rerun()
 
     elif menu == "⚙️ Ajustes":
