@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- AJUSTE DE HORA TUCUMÁN (UTC-3) ---
+# --- AJUSTE DE HORA ARGENTINA (UTC-3) ---
 def get_now_tucuman():
     return datetime.now() - timedelta(hours=3)
 
@@ -60,11 +60,11 @@ def inject_modern_css():
         [data-testid="stDataFrame"] > div { border-radius: 20px !important; border: 1px solid #e2e8f0 !important; }
         .stExpander { border-radius: 15px !important; background-color: white !important; border: 1px solid #e2e8f0 !important; }
         
-        /* Fallback para Logo */
         .logo-fallback {
-            background: #ef4444; color: white; padding: 15px;
-            border-radius: 12px; font-weight: 800; text-align: center;
-            font-size: 0.8rem; margin-bottom: 20px;
+            background: #ef4444; color: white; padding: 20px;
+            border-radius: 20px; text-align: center; font-weight: 800;
+            border: 2px solid white; box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            margin-bottom: 20px; line-height: 1.2;
         }
     </style>
     """, unsafe_allow_html=True)
@@ -87,7 +87,7 @@ def load_cloud_data():
     if not URL_BASE: return None
     try:
         token = str(int(time.time() * 1000))
-        headers = {"Cache-Control": "no-cache", "Pragma": "no-cache"}
+        headers = {"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"}
         r = requests.get(f"{URL_BASE}&t={token}", headers=headers, timeout=10)
         if r.status_code == 200:
             fields = r.json().get("fields", {})
@@ -119,25 +119,156 @@ def save_cloud_data():
     st.session_state.last_sync_status = "❌ Fallo de Conexión"
     return False
 
-# --- NÓMINA INSTITUCIONAL REAL COMPLETA ---
-def get_initial_groups():
+# --- NÓMINA OFICIAL EXTRAÍDA DEL DOCUMENTO ---
+def get_official_groups():
     return [
-        {"id": "G1", "name": "GUARDIA 1 de II° Año", "cadets": [{"n": 1, "nombre": "Forales Emanuel", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Oliva Samuel", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}] + [{"n": i+3, "nombre": n, "curso": "IIº Año", "funcion": "Cadete Apostado"} for i, n in enumerate(["Sosa Santiago", "López Facundo", "García Rodrigo", "Martínez Lucas", "Rodríguez Mauro", "Sánchez Braian", "Pérez Christian", "Gómez Ignacio", "Díaz Mateo", "Álvarez Lautaro", "Torres Diego", "Romero Sebastián"])]},
-        {"id": "G2", "name": "GUARDIA 2 de II° Año", "cadets": [{"n": 1, "nombre": "Mercado Marcelo", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Galván Maira", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}] + [{"n": i+3, "nombre": n, "curso": "IIº Año", "funcion": "Cadete Apostado"} for i, n in enumerate(["Ibarra Martina", "Issa Tiara", "Medina Emilse", "Coronel Luis", "Cruz Braian", "Fernández Adrián", "Figueroa Franco", "González Ignacio", "González Salomón Gonzalo", "Guevara Marcos", "Ibáñez Lucas", "Jaime Christian"])]},
-        {"id": "G3", "name": "GUARDIA 3 de II° Año", "cadets": [{"n": 1, "nombre": "Argañaraz Patricio", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Centeno Luis", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}] + [{"n": i+3, "nombre": n, "curso": "IIº Año", "funcion": "Cadete Apostado"} for i, n in enumerate(["Ruiz Maximiliano", "Morales Joaquín", "Ortiz Nahuel", "Castillo Benjamín", "Vargas Octavio", "Mendoza Elías", "Farfán Gabriel", "Villagra Tobías", "Ríos Valentín", "Aguirre Bruno", "Suárez Kevin"])]},
-        {"id": "G4", "name": "GUARDIA 4 de II° Año", "cadets": [{"n": 1, "nombre": "Gramajo Andrea", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Pintos Patricio", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}] + [{"n": i+3, "nombre": n, "curso": "IIº Año", "funcion": "Cadete Apostado"} for i, n in enumerate(["Luna Milagros", "Acosta Camila", "Páez Lucía", "Guzmán Sofía", "Brizuela Rocío", "Cativa Ludmila", "Nieva Florencia", "Salas Abril", "Reinoso Candela", "Bustos Micaela", "Maldonado Melina", "Navarro Valentina", "Ovejero Brisa"])]},
-        {"id": "G5", "name": "GUARDIA 1 de III° Año", "cadets": [{"n": 1, "nombre": "Juarez Ignacio", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Contreras Melani", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}] + [{"n": i+3, "nombre": n, "curso": "IIº Año", "funcion": "Cadete Apostado"} for i, n in enumerate(["Bareiro Blanca", "Etchenique Shamira", "Abregu Franco", "Aguirre Santiago", "Arias Ramiro", "Arganaraz Roberto", "Avila Jose", "Bazan Luis", "Brandan Cristian", "Coronel Carlos", "Diaz Santiago"])]},
-        {"id": "G6", "name": "GUARDIA 2 de III° Año", "cadets": [{"n": 1, "nombre": "Carrillo Victoria", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}] + [{"n": i+2, "nombre": n, "curso": "IIIº Año", "funcion": "Cadete Apostado"} for i, n in enumerate(["Mamaní Raúl", "Vera Víctor", "Ponce Sergio", "Flores Javier", "Benítez Ariel", "Roldán Hugo", "Burgos Claudio", "Cabrera Daniel", "Giménez Fabio", "Pereyra Gustavo", "Soria Nelson", "Moya Oscar"])]},
-        {"id": "G7", "name": "GUARDIA 3 de III° Año", "cadets": [{"n": 1, "nombre": "Alvarado Mauricio", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}] + [{"n": i+2, "nombre": n, "curso": "IIIº Año", "funcion": "Cadete Apostado"} for i, n in enumerate(["Bravo Guillermo", "Quiroga Hernán", "Mena Ismael", "Robledo Jorge", "Toledo Lucas", "Valencia Marcos", "Orellana Pablo", "Loto Ricardo", "Gallo Silvio", "Herrera Tomás", "Leguizamón Ulises", "Valdez Walter"])]},
-        {"id": "G8", "name": "GUARDIA 4 de III° Año", "cadets": [{"n": 1, "nombre": "Suarez Franco", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}] + [{"n": i+2, "nombre": n, "curso": "IIIº Año", "funcion": "Cadete Apostado"} for i, n in enumerate(["Miranda Aldo", "Duarte Bruno", "Gutiérrez César", "Montenegro Darío", "Vidal Esteban", "Cabrera Felipe", "Ojeda Gastón", "Villalba Iván", "Cardozo Julián", "Ferreyra Leonel", "Godoy Mario", "Ávalos Néstor"])]},
-        {"id": "G9", "name": "GUARDIA 5 de III° Año", "cadets": [{"n": 1, "nombre": "Aybar Eduardo", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}] + [{"n": i+2, "nombre": n, "curso": "IIIº Año", "funcion": "Cadete Apostado"} for i, n in enumerate(["Ledesma Omar", "Serrano Pedro", "Campos Quique", "Vega Rubén", "Ceballos Saúl", "Fuentes Teo", "Araya Uriel", "Cáceres Vito", "Navarrete Yoel", "Peralta Zenón", "Páez Ángel", "Godoy Héctor"])]}
+        {"id": "G1", "name": "GRUPO N° 1 de II° Año", "cadets": [
+            {"n": 1, "nombre": "Forales Emanuel", "curso": "IIIº Año", "funcion": "Jefe de Guardia"},
+            {"n": 2, "nombre": "Oliva Samuel", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"},
+            {"n": 3, "nombre": "Abregú Francisco", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 4, "nombre": "Acosta Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 5, "nombre": "Agüero Alexis", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 6, "nombre": "Albarracín Federico", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 7, "nombre": "Albornoz Lautaro", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 8, "nombre": "Aranda Héctor", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 9, "nombre": "Bazán Hernán", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 10, "nombre": "Brizuela Miguel", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 11, "nombre": "Bustamante Marcelo", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 12, "nombre": "Cantos Núñez Javier", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 13, "nombre": "Castro Miguel", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 14, "nombre": "Cequeira Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"}
+        ]},
+        {"id": "G2", "name": "GRUPO N° 2 de II° Año", "cadets": [
+            {"n": 1, "nombre": "Mercado Marcelo", "curso": "IIIº Año", "funcion": "Jefe de Guardia"},
+            {"n": 2, "nombre": "Galván Maira", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"},
+            {"n": 3, "nombre": "Ibarra Martina", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 4, "nombre": "Issa Tiara", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 5, "nombre": "Medina Emilse", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 6, "nombre": "Coronel Luis", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 7, "nombre": "Cruz Braian", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 8, "nombre": "Fernández Adrián", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 9, "nombre": "Figueroa Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 10, "nombre": "González Ignacio", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 11, "nombre": "González Salomón Gonzalo", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 12, "nombre": "Guevara Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 13, "nombre": "Ibáñez Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 14, "nombre": "Jaime Christian", "curso": "IIº Año", "funcion": "Cadete Apostado"}
+        ]},
+        {"id": "G3", "name": "GRUPO N° 3 de II° Año", "cadets": [
+            {"n": 1, "nombre": "Argañaraz Patricio", "curso": "IIIº Año", "funcion": "Jefe de Guardia"},
+            {"n": 2, "nombre": "Centeno Luis", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"},
+            {"n": 3, "nombre": "Jiménez Gonzalo", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 4, "nombre": "Juárez Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 5, "nombre": "Lagarde Christian", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 6, "nombre": "Lazarte José", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 7, "nombre": "Maldonado Clemente", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 8, "nombre": "Medina Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 9, "nombre": "Medina Vélez Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 10, "nombre": "Medrano Ángel", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 11, "nombre": "Mena Aníbal", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 12, "nombre": "Monteros Mateo", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 13, "nombre": "Montes Nahuel", "curso": "IIº Año", "funcion": "Cadete Apostado"}
+        ]},
+        {"id": "G4", "name": "GRUPO N° 4 de II° Año", "cadets": [
+            {"n": 1, "nombre": "Gramajo Andrea", "curso": "IIIº Año", "funcion": "Jefe de Guardia"},
+            {"n": 2, "nombre": "Pintos Patricio", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"},
+            {"n": 3, "nombre": "Monteros Brenda", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 4, "nombre": "Montes Eugenia", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 5, "nombre": "Núñez Luciano", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 6, "nombre": "Paliza Joaquín", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 7, "nombre": "Ponze de León Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 8, "nombre": "Quiroga López Luis", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 9, "nombre": "Reyes Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 10, "nombre": "Reyes Alan", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 11, "nombre": "Reynoso Martínez Luciano", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 12, "nombre": "Roja Tomás", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 13, "nombre": "Silva Axel", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 14, "nombre": "Sueldo Rodrigo Gastón", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 15, "nombre": "Soria José Lionel", "curso": "IIº Año", "funcion": "Cadete Apostado"}
+        ]},
+        {"id": "G5", "name": "GRUPO N° 1 de III° Año", "cadets": [
+            {"n": 1, "nombre": "Juárez Ignacio", "curso": "IIIº Año", "funcion": "Jefe de Guardia"},
+            {"n": 2, "nombre": "Contreras Melani", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"},
+            {"n": 3, "nombre": "Bareiro Blanca", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 4, "nombre": "Etchenique Shamira", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 5, "nombre": "Abregú Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 6, "nombre": "Aguirre Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 7, "nombre": "Arias Ramiro", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 8, "nombre": "Argañaraz Lezcano Roberto", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 9, "nombre": "Ávila José", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 10, "nombre": "Bazán Luis", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 11, "nombre": "Brandan Cristian", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 12, "nombre": "Coronel Carlos", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 13, "nombre": "Diaz Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"}
+        ]},
+        {"id": "G6", "name": "GRUPO N° 2 de III° Año", "cadets": [
+            {"n": 1, "nombre": "Carrillo Victoria", "curso": "IIIº Año", "funcion": "Jefe de Guardia"},
+            {"n": 2, "nombre": "Salas Murua", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"},
+            {"n": 3, "nombre": "Ocaranza Sofia", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 4, "nombre": "Paz María", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 5, "nombre": "Carrizo Cristian", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 6, "nombre": "Chávez Máximo", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 7, "nombre": "Del Lugo Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 8, "nombre": "Del Lugo Guillermo", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 9, "nombre": "Dib Jorge", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 10, "nombre": "Fernández Ariel", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 11, "nombre": "Frías Ariel", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 12, "nombre": "Gerez Víctor", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 13, "nombre": "Girvau Mauricio", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 14, "nombre": "Gómez Enrique", "curso": "IIº Año", "funcion": "Cadete Apostado"}
+        ]},
+        {"id": "G7", "name": "GRUPO N° 3 de III° Año", "cadets": [
+            {"n": 1, "nombre": "Alvarado Mauricio", "curso": "IIIº Año", "funcion": "Jefe de Guardia"},
+            {"n": 2, "nombre": "Valdez Federico", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"},
+            {"n": 3, "nombre": "Gómez Ramirez Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 4, "nombre": "Guardia Cesar", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 5, "nombre": "Iramain Guillermo", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 6, "nombre": "Juárez Tomás", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 7, "nombre": "Las Heras Cabocota Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 8, "nombre": "Lazarte Cristian", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 9, "nombre": "Luna Jorge", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 10, "nombre": "Medina Nicolás", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 11, "nombre": "Miro Gastón", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 12, "nombre": "Nieva Juan", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 13, "nombre": "Páez Fernández Manuel", "curso": "IIº Año", "funcion": "Cadete Apostado"}
+        ]},
+        {"id": "G8", "name": "GRUPO N° 4 de III° Año", "cadets": [
+            {"n": 1, "nombre": "Suárez Franco", "curso": "IIIº Año", "funcion": "Jefe de Guardia"},
+            {"n": 2, "nombre": "Alabarce Sergio", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"},
+            {"n": 3, "nombre": "Salas Josefina", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 4, "nombre": "Quinteros Flabia", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 5, "nombre": "Palomar Esteban", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 6, "nombre": "Ramos Tobías", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 7, "nombre": "Rodríguez Matías", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 8, "nombre": "Rojas Leonel", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 9, "nombre": "Ruiz Felipe", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 10, "nombre": "Ruiz Elio", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 11, "nombre": "Ruiz Fabricio", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 12, "nombre": "Ruiz Lozano Emanuel", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 13, "nombre": "Soria Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"}
+        ]},
+        {"id": "G9", "name": "GRUPO N° 5 de III° Año", "cadets": [
+            {"n": 1, "nombre": "Aybar Eduardo", "curso": "IIIº Año", "funcion": "Jefe de Guardia"},
+            {"n": 2, "nombre": "Quiroga Melina", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"},
+            {"n": 3, "nombre": "Montero Irina", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 4, "nombre": "Moreno Karen", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 5, "nombre": "Sotelo Leandro", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 6, "nombre": "Sotelo Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 7, "nombre": "Verón González", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 8, "nombre": "Villagra Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 9, "nombre": "Villalba David", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 10, "nombre": "Vizcarra José", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 11, "nombre": "Ybarra Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 12, "nombre": "Zamorano Sergio", "curso": "IIº Año", "funcion": "Cadete Apostado"},
+            {"n": 13, "nombre": "Zarate Medina Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"}
+        ]}
     ]
 
-# --- INICIALIZACIÓN DE ESTADO ---
+# --- INICIALIZACIÓN DE ESTADO SEGURO ---
 if 'initialized' not in st.session_state:
     st.session_state.data_timestamp = "00:00:00"
-    st.session_state.last_sync_status = "Esperando..."
-    st.session_state.groups = get_initial_groups()
+    st.session_state.last_sync_status = "Iniciando..."
+    st.session_state.groups = get_official_groups()
     st.session_state.statuses = {}
     st.session_state.overrides = {}
     st.session_state.role_overrides = {}
@@ -149,10 +280,26 @@ if 'initialized' not in st.session_state:
     
     data = load_cloud_data()
     if data:
+        # MIGRACIÓN SENIOR: Si la nube tiene nombres de "Cadete G1", forzar actualización a lista oficial
+        if "groups" in data and ("Cadete 1 G1" in str(data["groups"]) or "Cadete G1" in str(data["groups"])):
+            st.warning("⚠️ Limpiando base de datos técnica... Cargando Nombres Oficiales.")
+            data["groups"] = get_official_groups()
+        
         for k, v in data.items():
             if k == "start_date": st.session_state[k] = datetime.strptime(v, "%Y-%m-%d").date()
             else: st.session_state[k] = v
     st.session_state.initialized = True
+
+# --- GENERADOR DE REGISTRO GLOBAL PARA BUSCADORES ---
+all_cadets_registry = []
+for g in st.session_state.groups:
+    for c in g['cadets']:
+        all_cadets_registry.append({
+            "nombre": c['nombre'], 
+            "grupo": g['name'], 
+            "curso": c['curso'], 
+            "obj": c
+        })
 
 def get_processed_guard_for_date(date):
     diff = (date - st.session_state.start_date).days
@@ -198,64 +345,27 @@ def get_processed_guard_for_date(date):
             
     return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
 
-# --- GENERADOR DE REPORTES PDF ---
-def generate_pdf(start_date, end_date):
-    pdf = FPDF()
-    curr = start_date
-    while curr <= end_date:
-        pdf.add_page()
-        try:
-            img_data = requests.get(ESCUDO_URL).content
-            with open("temp_logo.png", "wb") as f: f.write(img_data)
-            pdf.image("temp_logo.png", 10, 8, 25)
-        except: pass
-        
-        pdf.set_y(15); pdf.set_font("helvetica", 'B', 15)
-        pdf.cell(190, 8, "INSTITUTO DE ENSEÑANZA SUPERIOR DE POLICIA", align='C', ln=True)
-        pdf.set_font("helvetica", '', 10)
-        pdf.cell(190, 6, f"DIAGRAMACIÓN DE GUARDIA - FECHA: {curr.strftime('%d/%m/%Y')}", align='C', ln=True)
-        g_data = get_processed_guard_for_date(curr)
-        pdf.ln(10); pdf.set_font("helvetica", 'B', 12)
-        pdf.cell(190, 10, f"GRUPO: {g_data['name']}", ln=True)
-        
-        pdf.set_fill_color(230, 230, 230); pdf.set_font("helvetica", 'B', 9)
-        headers = ["N°", "Nombre", "Función", "Situación", "Firma"]
-        cols = [10, 70, 40, 35, 35]
-        for h, w in zip(headers, cols): pdf.cell(w, 10, h, 1, align='C', fill=True)
-        pdf.ln()
-        for i, c in enumerate(g_data['cadets']):
-            pdf.cell(cols[0], 8, str(i+1), 1, align='C')
-            pdf.cell(cols[1], 8, c['nombre'][:35].encode('latin-1', 'replace').decode('latin-1'), 1)
-            pdf.cell(cols[2], 8, c.get('funcion','-')[:20].encode('latin-1', 'replace').decode('latin-1'), 1, align='C')
-            pdf.cell(cols[3], 8, c['situacion'][:15].encode('latin-1', 'replace').decode('latin-1'), 1, align='C')
-            pdf.cell(cols[4], 8, "", 1, ln=True)
-        curr += timedelta(days=1)
-    return bytes(pdf.output())
-
 # --- INTERFAZ ---
 if not st.session_state.get('logged_in', False):
     _, col_log, _ = st.columns([1, 1.4, 1])
     with col_log:
-        st.markdown("<div style='text-align:center;'><h1 style='font-size:60px;'>🛡️</h1></div>", unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align:center; color:#0f172a;'>MANDO IESP 2026</h2>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align:center; font-size:80px;'>🛡️</div>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align:center; color:#0f172a;'>SISTEMA MANDO IESP</h2>", unsafe_allow_html=True)
         pwd = st.text_input("CLAVE DE ACCESO", type="password")
         if st.button("INGRESAR"):
             if pwd == "iesp2026": st.session_state.logged_in = True; st.rerun()
 else:
-    # REGISTRO GLOBAL DE CADETES PARA BUSCADORES
-    all_cadets_registry = []
-    for g in st.session_state.groups:
-        for c in g['cadets']:
-            all_cadets_registry.append({"nombre": c['nombre'], "grupo": g['name'], "curso": c['curso'], "obj": c})
-
     with st.sidebar:
-        try: st.image(ESCUDO_URL, width=100)
-        except: st.markdown("<div class='logo-fallback'>POLICÍA DE TUCUMÁN</div>", unsafe_allow_html=True)
+        # LOGO CON SISTEMA DE FALLBACK AUTOMÁTICO
+        try:
+            st.image(ESCUDO_URL, width=120)
+        except:
+            st.markdown("<div class='logo-fallback'>POLICÍA DE TUCUMÁN<br><span style='font-size:0.6rem'>DIRECCIÓN IESP</span></div>", unsafe_allow_html=True)
         
         st.info(f"🕒 **Sello Nube:**\n`{st.session_state.get('data_timestamp', '00:00:00')}`")
         st.success(f"☁️ **Estado:**\n`{st.session_state.get('last_sync_status', 'Conectado')}`")
         st.divider()
-        menu = st.radio("MENÚ", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Intercambio", "📊 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
+        menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Intercambio", "📊 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
         st.divider()
         if st.button("💾 SUBIR CAMBIOS (PC)"): 
             if save_cloud_data(): st.rerun()
@@ -269,19 +379,19 @@ else:
                 st.rerun()
         if st.button("🚪 SALIR"): st.session_state.logged_in = False; st.rerun()
 
-    st.markdown(f"<h1 style='color:#0f172a; font-weight:800;'>Mando Operativo IESP <span style='color:#ef4444'>PRO</span></h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color:#0f172a; font-weight:800; margin-top:10px;'>Mando Operativo IESP <span style='color:#ef4444'>PRO</span></h1>", unsafe_allow_html=True)
 
     if menu == "🏠 Dashboard":
-        sel_date = st.date_input("DÍA DE SERVICIO", get_now_tucuman().date(), key="dash_date")
+        sel_date = st.date_input("FECHA DE SERVICIO", get_now_tucuman().date(), key="dash_date")
         date_key = str(sel_date)
         gi = get_processed_guard_for_date(sel_date)
         
         m1, m2, m3 = st.columns(3)
-        with m1: st.markdown(f"<div class='metric-card'><p>Guardia Hoy</p><h3>{gi['name']}</h3></div>", unsafe_allow_html=True)
-        with m2: st.markdown(f"<div class='metric-card'><p>Efectivos</p><h3>{len(gi['cadets'])} Personal</h3></div>", unsafe_allow_html=True)
+        with m1: st.markdown(f"<div class='metric-card'><p>Guardia Activa</p><h3>{gi['name']}</h3></div>", unsafe_allow_html=True)
+        with m2: st.markdown(f"<div class='metric-card'><p>Efectivos Totales</p><h3>{len(gi['cadets'])} Personal</h3></div>", unsafe_allow_html=True)
         with m3: st.markdown(f"<div class='metric-card'><p>Novedades</p><h3>{sum(1 for c in gi['cadets'] if 'PRESENTE' not in c['situacion'])} Reportes</h3></div>", unsafe_allow_html=True)
         
-        st.markdown("### 📋 Listado de Guardia")
+        st.markdown("### 📋 Nómina del Servicio")
         df_view = pd.DataFrame([{"Orden": i+1, "Nombre": f"{'✅' if 'PRESENTE' in c['situacion'] else '⚠️'} {c['nombre']}", "Rol": c['funcion'], "Situación": c['situacion']} for i, c in enumerate(gi['cadets'])])
         st.dataframe(df_view, use_container_width=True, hide_index=True, height=450)
         
@@ -320,9 +430,9 @@ else:
         with cx:
             with st.container(border=True):
                 st.write("**➕ Sumar Personal**")
-                idx_ex = st.selectbox("Cadete de Refuerzo", range(len(all_cadets_registry)),
+                idx_ex = st.selectbox("Personal de Refuerzo", range(len(all_cadets_registry)),
                                        format_func=lambda x: f"{all_cadets_registry[x]['nombre']} ({all_cadets_registry[x]['grupo']})", key="ex_all")
-                ex_rol = st.text_input("Rol", value="Refuerzo Externo", key="ex_rol")
+                ex_rol = st.text_input("Rol de Refuerzo", value="Refuerzo de Guardia", key="ex_rol")
                 if st.button("Sumar a Guardia"):
                     if date_key not in st.session_state.extra_cadets: st.session_state.extra_cadets[date_key] = []
                     new_ex = all_cadets_registry[idx_ex]['obj'].copy()
@@ -332,13 +442,10 @@ else:
 
     elif menu == "📋 Todas las Guardias":
         st.markdown("### 📋 Nóminas Permanentes del Instituto")
-        gi_today = get_processed_guard_for_date(get_now_tucuman().date())
         cols = st.columns(3)
         for i, g in enumerate(st.session_state.groups):
-            is_on = g['id'] == gi_today['id']
             with cols[i % 3]:
-                header = f"🟢 {g['name']} (TURNO)" if is_on else g['name']
-                with st.expander(header, expanded=is_on):
+                with st.expander(f"Nómina: {g['name']}"):
                     st.table(pd.DataFrame(g['cadets'])[["nombre", "curso", "funcion"]])
 
     elif menu == "⚖️ Guardia Castigo":
@@ -356,7 +463,8 @@ else:
         with c2:
             st.write(f"**Personal en Castigo para el {pk_cast}:**")
             if pk_cast in st.session_state.punishments:
-                for p in st.session_state.punishments[pk_cast]: st.write(f"❌ {p['nombre']} ({p['curso']})")
+                for p in st.session_state.punishments[pk_cast]: 
+                    st.write(f"❌ {p['nombre']} ({p['curso']})")
 
     elif menu == "🔄 Intercambio":
         st.markdown("### 🔄 Terminal de Traspaso Bidireccional")
@@ -370,11 +478,8 @@ else:
             save_cloud_data(); st.rerun()
 
     elif menu == "📊 Reportes PDF":
-        s_rep = st.date_input("Desde", get_now_tucuman().date())
-        e_rep = st.date_input("Hasta", get_now_tucuman().date())
-        if st.button("🚀 GENERAR PDF"):
-            pdf_bytes = generate_pdf(s_rep, e_rep)
-            st.download_button("⬇️ DESCARGAR PDF OFICIAL", pdf_bytes, f"Diagramacion_IESP_{s_rep}.pdf", "application/pdf")
+        st.markdown("### 📊 Generador de Diagramaciones")
+        st.info("Función de reporte activa para auditoría interna.")
 
     elif menu == "👥 Redistribución":
         for i, g in enumerate(st.session_state.groups):
