@@ -22,7 +22,8 @@ def get_now_tucuman():
     return datetime.now() - timedelta(hours=3)
 
 # --- CONSTANTES INSTITUCIONALES ---
-ESCUDO_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Escudo_de_la_Polic%C3%ADa_de_Tucum%C3%A1n.png/250px-Escudo_de_la_Polic%C3%ADa_de_Tucum%C3%A1n.png"
+# URL estabilizada para el escudo
+ESCUDO_URL = "https://upload.wikimedia.org/wikipedia/commons/c/c5/Escudo_de_la_Polic%C3%ADa_de_Tucum%C3%A1n.png"
 
 # --- DISEÑO UI PREMIUM (CSS) ---
 def inject_modern_css():
@@ -44,7 +45,6 @@ def inject_modern_css():
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05); 
             transition: all 0.3s ease;
         }
-        .metric-card:hover { transform: translateY(-5px); border-color: #ef4444; }
         .metric-card h3 { color: #0f172a; font-weight: 800; font-size: 1.3rem; margin: 0; }
         .metric-card p { color: #64748b; font-weight: 700; text-transform: uppercase; font-size: 0.7rem; }
 
@@ -55,16 +55,13 @@ def inject_modern_css():
             letter-spacing: 1px; border: none !important;
             box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2);
         }
-        div.stButton > button:hover { background: #dc2626 !important; transform: scale(1.02); }
         
         [data-testid="stDataFrame"] > div { border-radius: 20px !important; border: 1px solid #e2e8f0 !important; }
-        .stExpander { border-radius: 15px !important; background-color: white !important; border: 1px solid #e2e8f0 !important; }
         
-        .logo-fallback {
-            background: #ef4444; color: white; padding: 20px;
-            border-radius: 20px; text-align: center; font-weight: 800;
-            border: 2px solid white; box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-            margin-bottom: 20px; line-height: 1.2;
+        .logo-box {
+            background: #ef4444; color: white; padding: 15px;
+            border-radius: 15px; text-align: center; font-weight: 800;
+            margin-bottom: 20px; border: 2px solid rgba(255,255,255,0.2);
         }
     </style>
     """, unsafe_allow_html=True)
@@ -116,10 +113,9 @@ def save_cloud_data():
             st.session_state.last_sync_status = f"✅ Sincronizado {st.session_state.data_timestamp}"
             return True
     except: pass
-    st.session_state.last_sync_status = "❌ Fallo de Conexión"
     return False
 
-# --- NÓMINA OFICIAL EXTRAÍDA DEL DOCUMENTO ---
+# --- NÓMINA OFICIAL MARZO 2026 (DOCX DATA) ---
 def get_official_groups():
     return [
         {"id": "G1", "name": "GRUPO N° 1 de II° Año", "cadets": [
@@ -278,28 +274,19 @@ if 'initialized' not in st.session_state:
     st.session_state.start_date = datetime(2026, 3, 19).date()
     st.session_state.logged_in = False
     
+    # Carga desde nube (con lógica de migración forzada)
     data = load_cloud_data()
     if data:
-        # MIGRACIÓN SENIOR: Si la nube tiene nombres de "Cadete G1", forzar actualización a lista oficial
-        if "groups" in data and ("Cadete 1 G1" in str(data["groups"]) or "Cadete G1" in str(data["groups"])):
-            st.warning("⚠️ Limpiando base de datos técnica... Cargando Nombres Oficiales.")
-            data["groups"] = get_official_groups()
-        
-        for k, v in data.items():
-            if k == "start_date": st.session_state[k] = datetime.strptime(v, "%Y-%m-%d").date()
-            else: st.session_state[k] = v
+        # Detectar si los datos en la nube son la versión antigua ("Cadete G1")
+        cloud_str = str(data.get("groups", ""))
+        if "Cadete G1" in cloud_str or "Cadete 1 G1" in cloud_str:
+            st.warning("⚠️ Datos antiguos detectados. Forzando actualización a Nómina Oficial...")
+            st.session_state.groups = get_official_groups()
+        else:
+            for k, v in data.items():
+                if k == "start_date": st.session_state[k] = datetime.strptime(v, "%Y-%m-%d").date()
+                else: st.session_state[k] = v
     st.session_state.initialized = True
-
-# --- GENERADOR DE REGISTRO GLOBAL PARA BUSCADORES ---
-all_cadets_registry = []
-for g in st.session_state.groups:
-    for c in g['cadets']:
-        all_cadets_registry.append({
-            "nombre": c['nombre'], 
-            "grupo": g['name'], 
-            "curso": c['curso'], 
-            "obj": c
-        })
 
 def get_processed_guard_for_date(date):
     diff = (date - st.session_state.start_date).days
@@ -329,7 +316,7 @@ def get_processed_guard_for_date(date):
         if s['date'] == date_key and s['target_group'] == base_group['name']:
             cad_swap = s['cadet_obj'].copy()
             cad_swap['nombre'] = f"⚡ {cad_swap['nombre']}"
-            cad_swap['situacion'] = f"INTERCAMBIO (DE {s['orig_group']})"
+            cad_swap['situacion'] = f"INTERCAMBIO"
             processed.append(cad_swap)
             
     for p in punishments:
@@ -340,7 +327,7 @@ def get_processed_guard_for_date(date):
     for e in extras:
         cad_e = e.copy()
         cad_e['nombre'] = f"➕ {cad_e['nombre']}"
-        cad_e['situacion'] = "REFUERZO AGREGADO"
+        cad_e['situacion'] = "REFUERZO"
         processed.append(cad_e)
             
     return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
@@ -349,23 +336,26 @@ def get_processed_guard_for_date(date):
 if not st.session_state.get('logged_in', False):
     _, col_log, _ = st.columns([1, 1.4, 1])
     with col_log:
-        st.markdown("<div style='text-align:center; font-size:80px;'>🛡️</div>", unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align:center; color:#0f172a;'>SISTEMA MANDO IESP</h2>", unsafe_allow_html=True)
-        pwd = st.text_input("CLAVE DE ACCESO", type="password")
+        st.markdown("<div style='text-align:center; font-size:60px;'>🛡️</div>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align:center; color:#0f172a;'>MANDO IESP</h2>", unsafe_allow_html=True)
+        pwd = st.text_input("CLAVE", type="password")
         if st.button("INGRESAR"):
             if pwd == "iesp2026": st.session_state.logged_in = True; st.rerun()
 else:
+    # REGISTRO GLOBAL ACTUALIZADO PARA BUSCADORES
+    all_cadets_registry = []
+    for g in st.session_state.groups:
+        for c in g['cadets']:
+            all_cadets_registry.append({"nombre": c['nombre'], "grupo": g['name'], "curso": c['curso'], "obj": c})
+
     with st.sidebar:
-        # LOGO CON SISTEMA DE FALLBACK AUTOMÁTICO
-        try:
-            st.image(ESCUDO_URL, width=120)
-        except:
-            st.markdown("<div class='logo-fallback'>POLICÍA DE TUCUMÁN<br><span style='font-size:0.6rem'>DIRECCIÓN IESP</span></div>", unsafe_allow_html=True)
+        try: st.image(ESCUDO_URL, width=120)
+        except: st.markdown("<div class='logo-box'>POLICÍA DE TUCUMÁN<br>IESP</div>", unsafe_allow_html=True)
         
         st.info(f"🕒 **Sello Nube:**\n`{st.session_state.get('data_timestamp', '00:00:00')}`")
         st.success(f"☁️ **Estado:**\n`{st.session_state.get('last_sync_status', 'Conectado')}`")
         st.divider()
-        menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Intercambio", "📊 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
+        menu = st.radio("MENÚ", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Intercambio", "📊 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
         st.divider()
         if st.button("💾 SUBIR CAMBIOS (PC)"): 
             if save_cloud_data(): st.rerun()
@@ -379,19 +369,19 @@ else:
                 st.rerun()
         if st.button("🚪 SALIR"): st.session_state.logged_in = False; st.rerun()
 
-    st.markdown(f"<h1 style='color:#0f172a; font-weight:800; margin-top:10px;'>Mando Operativo IESP <span style='color:#ef4444'>PRO</span></h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color:#0f172a; font-weight:800; margin-top:10px;'>Diagramación IESP <span style='color:#ef4444'>PRO</span></h1>", unsafe_allow_html=True)
 
     if menu == "🏠 Dashboard":
-        sel_date = st.date_input("FECHA DE SERVICIO", get_now_tucuman().date(), key="dash_date")
+        sel_date = st.date_input("FECHA SELECCIONADA", get_now_tucuman().date(), key="dash_date")
         date_key = str(sel_date)
         gi = get_processed_guard_for_date(sel_date)
         
         m1, m2, m3 = st.columns(3)
-        with m1: st.markdown(f"<div class='metric-card'><p>Guardia Activa</p><h3>{gi['name']}</h3></div>", unsafe_allow_html=True)
-        with m2: st.markdown(f"<div class='metric-card'><p>Efectivos Totales</p><h3>{len(gi['cadets'])} Personal</h3></div>", unsafe_allow_html=True)
+        with m1: st.markdown(f"<div class='metric-card'><p>Guardia Hoy</p><h3>{gi['name']}</h3></div>", unsafe_allow_html=True)
+        with m2: st.markdown(f"<div class='metric-card'><p>Efectivos</p><h3>{len(gi['cadets'])} Personal</h3></div>", unsafe_allow_html=True)
         with m3: st.markdown(f"<div class='metric-card'><p>Novedades</p><h3>{sum(1 for c in gi['cadets'] if 'PRESENTE' not in c['situacion'])} Reportes</h3></div>", unsafe_allow_html=True)
         
-        st.markdown("### 📋 Nómina del Servicio")
+        st.markdown("### 📋 Listado Oficial de Guardia")
         df_view = pd.DataFrame([{"Orden": i+1, "Nombre": f"{'✅' if 'PRESENTE' in c['situacion'] else '⚠️'} {c['nombre']}", "Rol": c['funcion'], "Situación": c['situacion']} for i, c in enumerate(gi['cadets'])])
         st.dataframe(df_view, use_container_width=True, hide_index=True, height=450)
         
@@ -402,7 +392,7 @@ else:
         with ca:
             with st.container(border=True):
                 st.write("**📝 Asistencia**")
-                c_as = st.selectbox("Personal en Lista", list_pure, key="as_s")
+                c_as = st.selectbox("Personal", list_pure, key="as_s")
                 n_st = st.selectbox("Estado", ["PRESENTE", "FRANCO", "A.R.T.", "AUSENTE", "NOTA MÉDICA"], key="st_s")
                 if st.button("Fijar Estado"):
                     if date_key not in st.session_state.statuses: st.session_state.statuses[date_key] = {}
@@ -410,8 +400,8 @@ else:
                     save_cloud_data(); st.rerun()
         with cf:
             with st.container(border=True):
-                st.write("**🎭 Función**")
-                c_fu = st.selectbox("Personal en Lista", list_pure, key="fu_s")
+                st.write("**🎭 Modificar Función**")
+                c_fu = st.selectbox("Personal", list_pure, key="fu_s")
                 n_fu = st.text_input("Nuevo Rol", placeholder="Ej: Centinela", key="fu_v")
                 if st.button("Asignar Rol"):
                     if date_key not in st.session_state.role_overrides: st.session_state.role_overrides[date_key] = {}
@@ -420,7 +410,7 @@ else:
         with cs:
             with st.container(border=True):
                 st.write("**🔄 Suplencia**")
-                tit = st.selectbox("Titular a Reemplazar", list_pure, key="su_s")
+                tit = st.selectbox("Titular", list_pure, key="su_s")
                 idx_sup = st.selectbox("Seleccionar Suplente", range(len(all_cadets_registry)), 
                                         format_func=lambda x: f"{all_cadets_registry[x]['nombre']} ({all_cadets_registry[x]['grupo']})", key="su_all")
                 if st.button("Ejecutar Cambio"):
@@ -432,7 +422,7 @@ else:
                 st.write("**➕ Sumar Personal**")
                 idx_ex = st.selectbox("Personal de Refuerzo", range(len(all_cadets_registry)),
                                        format_func=lambda x: f"{all_cadets_registry[x]['nombre']} ({all_cadets_registry[x]['grupo']})", key="ex_all")
-                ex_rol = st.text_input("Rol de Refuerzo", value="Refuerzo de Guardia", key="ex_rol")
+                ex_rol = st.text_input("Rol de Refuerzo", value="Refuerzo Externo", key="ex_rol")
                 if st.button("Sumar a Guardia"):
                     if date_key not in st.session_state.extra_cadets: st.session_state.extra_cadets[date_key] = []
                     new_ex = all_cadets_registry[idx_ex]['obj'].copy()
@@ -454,7 +444,7 @@ else:
         c1, c2 = st.columns(2)
         with c1:
             with st.container(border=True):
-                idx_p = st.selectbox("Cadete Sancionado", range(len(all_cadets_registry)),
+                idx_p = st.selectbox("Sancionado", range(len(all_cadets_registry)),
                                       format_func=lambda x: f"{all_cadets_registry[x]['nombre']} ({all_cadets_registry[x]['grupo']})")
                 if st.button("AGREGAR A GUARDIA CASTIGO"):
                     if pk_cast not in st.session_state.punishments: st.session_state.punishments[pk_cast] = []
@@ -470,16 +460,12 @@ else:
         st.markdown("### 🔄 Terminal de Traspaso Bidireccional")
         d_sw = st.date_input("Fecha", get_now_tucuman().date())
         ga_idx = st.selectbox("Grupo A", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'], key="ga")
-        ca_idx = st.selectbox("Cadete de Grupo A", range(len(st.session_state.groups[ga_idx]['cadets'])), format_func=lambda x: st.session_state.groups[ga_idx]['cadets'][x]['nombre'], key="ca")
-        target_gb = st.selectbox("Grupo Destino para el Cadete de A", [g['name'] for g in st.session_state.groups], key="tgb")
+        ca_idx = st.selectbox("Cadete de A", range(len(st.session_state.groups[ga_idx]['cadets'])), format_func=lambda x: st.session_state.groups[ga_idx]['cadets'][x]['nombre'], key="ca")
+        target_gb = st.selectbox("Grupo Destino", [g['name'] for g in st.session_state.groups], key="tgb")
         if st.button("EJECUTAR TRASPASO"):
             cad_a = st.session_state.groups[ga_idx]['cadets'][ca_idx]
             st.session_state.swaps.append({"date": str(d_sw), "cadet_id": cad_a['nombre'], "cadet_obj": cad_a, "orig_group": st.session_state.groups[ga_idx]['name'], "target_group": target_gb})
             save_cloud_data(); st.rerun()
-
-    elif menu == "📊 Reportes PDF":
-        st.markdown("### 📊 Generador de Diagramaciones")
-        st.info("Función de reporte activa para auditoría interna.")
 
     elif menu == "👥 Redistribución":
         for i, g in enumerate(st.session_state.groups):
@@ -490,4 +476,13 @@ else:
 
     elif menu == "⚙️ Ajustes":
         st.session_state.start_date = st.date_input("Inicio del Ciclo", st.session_state.start_date)
-        if st.button("GUARDAR"): save_cloud_data(); st.success("Ajustado")
+        if st.button("GUARDAR CONFIGURACIÓN"):
+            save_cloud_data(); st.success("Ajustado")
+        
+        st.divider()
+        st.error("ZONA DE RECUPERACIÓN")
+        if st.button("⚠️ RESTABLECER NÓMINA OFICIAL (MIGRAR)"):
+            st.session_state.groups = get_official_groups()
+            save_cloud_data()
+            st.success("Nómina del Word cargada y sincronizada en la nube.")
+            st.rerun()
