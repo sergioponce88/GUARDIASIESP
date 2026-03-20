@@ -16,7 +16,15 @@ st.set_page_config(
 )
 
 # --- CONSTANTES INSTITUCIONALES ---
-ESCUDO_URL = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Escudo_de_la_Polic%C3%ADa_de_Tucum%C3%A1n.png/250px-Escudo_de_la_Polic%C3%ADa_de_Tucum%C3%A1n.png"
+# URL estable del escudo oficial
+ESCUDO_URL = "https://upload.wikimedia.org/wikipedia/commons/c/c5/Escudo_de_la_Polic%C3%ADa_de_Tucum%C3%A1n.png"
+LOGO_LOCAL = "logo_iesp.png"
+
+# Función para obtener el logo (Local o URL)
+def get_logo():
+    if os.path.exists(LOGO_LOCAL):
+        return LOGO_LOCAL
+    return ESCUDO_URL
 
 # --- DISEÑO UI VANGUARDISTA (CSS REFORZADO) ---
 def inject_modern_css():
@@ -187,6 +195,7 @@ def generate_pdf(start_date, end_date):
     while curr <= end_date:
         pdf.add_page()
         try:
+            # Uso de la URL de logo robusta
             img_data = requests.get(ESCUDO_URL).content
             with open("temp_logo.png", "wb") as f: f.write(img_data)
             pdf.image("temp_logo.png", 10, 8, 25)
@@ -214,7 +223,8 @@ if not st.session_state.logged_in:
     _, col_log, _ = st.columns([1, 1.4, 1])
     with col_log:
         st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
-        st.image(ESCUDO_URL, width=150)
+        # Fix del logo en Login
+        st.image(get_logo(), width=150)
         st.markdown("<h2 style='text-align:center;'>CONTROL DE GUARDIA IESP</h2>", unsafe_allow_html=True)
         pwd = st.text_input("PASSWORD", type="password")
         if st.button("INGRESAR AL SISTEMA"):
@@ -223,7 +233,8 @@ if not st.session_state.logged_in:
 else:
     # --- SIDEBAR ---
     with st.sidebar:
-        st.image(ESCUDO_URL, width=120)
+        # Fix del logo en Sidebar
+        st.image(get_logo(), width=120)
         st.markdown(f"**SISTEMA OFICIAL 2026**")
         if BASE_URL: st.success(f"☁️ Cloud Sinc: {st.session_state.last_sync}")
         menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Intercambio", "📂 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
@@ -239,9 +250,9 @@ else:
                 st.success("¡Sincronizado!"); st.rerun()
         if st.button("🚪 SALIR"): st.session_state.logged_in = False; st.rerun()
 
-    # Cabecera moderna
+    # Cabecera moderna con Fix del logo
     c_logo, c_title = st.columns([1, 8])
-    with c_logo: st.image(ESCUDO_URL, width=100)
+    with c_logo: st.image(get_logo(), width=100)
     with c_title: st.markdown("<h1 style='color:#0f172a; font-weight:800;'>Diagramación de Guardia <span style='color:#ef4444'>IESP PRO</span></h1>", unsafe_allow_html=True)
 
     if menu == "🏠 Dashboard":
