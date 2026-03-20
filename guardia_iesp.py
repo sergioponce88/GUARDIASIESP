@@ -21,9 +21,6 @@ st.set_page_config(
 def get_now_tucuman():
     return datetime.now() - timedelta(hours=3)
 
-# URL del escudo mantenida solo para el generador de PDF (en bloque try/except)
-ESCUDO_URL = "https://upload.wikimedia.org/wikipedia/commons/c/c5/Escudo_de_la_Polic%C3%ADa_de_Tucum%C3%A1n.png"
-
 # --- DISEÑO UI PREMIUM (CSS) ---
 def inject_modern_css():
     st.markdown("""
@@ -62,6 +59,15 @@ def inject_modern_css():
             border-radius: 15px; text-align: center; font-weight: 800;
             margin-bottom: 20px; border: 2px solid rgba(255,255,255,0.2);
         }
+
+        .guard-header {
+            background-color: #0f172a; 
+            padding: 15px 25px; 
+            border-radius: 20px; 
+            margin-bottom: 20px;
+            border-left: 8px solid #ef4444;
+        }
+        .guard-header h3 { color: white; margin: 0; font-size: 1.1rem; font-weight: 800; text-transform: uppercase; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -342,9 +348,7 @@ else:
             all_cadets_registry.append({"nombre": c['nombre'], "grupo": g['name'], "curso": c['curso'], "obj": c})
 
     with st.sidebar:
-        # Reemplazo visual de logo por caja institucional (ya que el logo falla)
         st.markdown("<div class='logo-box'>CONTROL DE GUARDIA<br><span style='font-size:0.7rem; font-weight:400;'>I.E.S.P. TUCUMÁN</span></div>", unsafe_allow_html=True)
-        
         st.info(f"🕒 **Sello Nube:**\n`{st.session_state.get('data_timestamp', '00:00:00')}`")
         st.success(f"☁️ **Estado:**\n`{st.session_state.get('last_sync_status', 'Conectado')}`")
         st.divider()
@@ -374,7 +378,13 @@ else:
         with m2: st.markdown(f"<div class='metric-card'><p>Efectivos</p><h3>{len(gi['cadets'])} Personal</h3></div>", unsafe_allow_html=True)
         with m3: st.markdown(f"<div class='metric-card'><p>Novedades</p><h3>{sum(1 for c in gi['cadets'] if 'PRESENTE' not in c['situacion'])} Reportes</h3></div>", unsafe_allow_html=True)
         
-        st.markdown("### 📋 Listado de Guardia")
+        # --- ENCABEZADO DE TURNO DINÁMICO ---
+        st.markdown(f"""
+            <div class='guard-header'>
+                <h3>📋 Listado de Guardia: {gi['name']}</h3>
+            </div>
+        """, unsafe_allow_html=True)
+        
         df_view = pd.DataFrame([{"Orden": i+1, "Nombre": f"{'✅' if 'PRESENTE' in c['situacion'] else '⚠️'} {c['nombre']}", "Rol": c['funcion'], "Situación": c['situacion']} for i, c in enumerate(gi['cadets'])])
         st.dataframe(df_view, use_container_width=True, hide_index=True, height=450)
         
@@ -426,7 +436,6 @@ else:
     elif menu == "📋 Todas las Guardias":
         st.markdown("### 📋 Nóminas Permanentes (Word Oficial)")
         
-        # Botón de Restablecer reubicado aquí para mayor comodidad
         if st.button("⚠️ RESTABLECER TODA LA NÓMINA OFICIAL (WORD)", type="secondary", use_container_width=True):
             st.session_state.groups = get_official_groups()
             save_cloud_data()
