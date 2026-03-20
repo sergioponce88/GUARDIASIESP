@@ -1,3 +1,5 @@
 streamlit
 pandas
 fpdf2
+requests
+2.  **Secrets en Streamlit Cloud**: Es **obligatorio** que hayas pegado los "Secrets" (la configuración de Firebase que te di antes) en el panel de Streamlit Cloud. Sin eso, la nube no sabe dónde guardar los datos.
