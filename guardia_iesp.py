@@ -10,7 +10,7 @@ import urllib.parse
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
-    page_title="IESP - MANDO PRO",
+    page_title="DIAGRAMACION DIGITAL - IESP",
     layout="wide",
     page_icon="🛡️",
     initial_sidebar_state="expanded"
@@ -65,11 +65,6 @@ def inject_modern_css():
             margin-bottom: 20px; border-left: 8px solid #ef4444;
         }
         .guard-header h3 { color: white; margin: 0; font-size: 1.1rem; font-weight: 800; text-transform: uppercase; }
-        
-        .whatsapp-btn {
-            background-color: #25d366 !important;
-            border-color: #128c7e !important;
-        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -197,7 +192,27 @@ def get_processed_guard_for_date(date):
         return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
     except: return {"name": "Error de Datos", "cadets": [], "id": "ERR"}
 
-# --- GENERADOR DE PDF BLINDADO ---
+# --- MOTOR DE ESTADÍSTICAS ---
+def get_stats():
+    try:
+        today = get_now_tucuman().date()
+        start = st.session_state.start_date
+        current = start
+        stats = {}
+        for g in st.session_state.groups:
+            for c in g['cadets']: stats[c['nombre']] = {"total": 0, "grupo": g['name'], "refuerzos": 0}
+        while current <= today:
+            guard_day = get_processed_guard_for_date(current)
+            for c in guard_day['cadets']:
+                name_clean = str(c.get('nombre','')).replace("✅ ","").replace("⚠️ ","").replace("⚡ ","").replace("🔄 ","").replace("⚖️ ","").replace("➕ ","").strip()
+                if name_clean in stats:
+                    stats[name_clean]["total"] += 1
+                    if any(x in str(c.get('situacion','')) for x in ["REFUERZO", "GUARDIA CASTIGO"]): stats[name_clean]["refuerzos"] += 1
+            current += timedelta(days=1)
+        return stats
+    except: return {}
+
+# --- GENERADOR DE PDF ---
 def generate_pdf(start_date, end_date):
     try:
         pdf = FPDF()
@@ -207,7 +222,7 @@ def generate_pdf(start_date, end_date):
             pdf.set_font("Helvetica", 'B', 14)
             pdf.cell(190, 10, "INSTITUTO DE ENSEÑANZA SUPERIOR DE POLICIA", 0, 1, 'C')
             pdf.set_font("Helvetica", '', 10)
-            pdf.cell(190, 6, f"DIAGRAMACION OPERATIVA DE GUARDIA - FECHA: {curr.strftime('%d/%m/%Y')}", 0, 1, 'C')
+            pdf.cell(190, 6, f"DIAGRAMACION DIGITAL DE GUARDIA - FECHA: {curr.strftime('%d/%m/%Y')}", 0, 1, 'C')
             g_data = get_processed_guard_for_date(curr)
             pdf.ln(5); pdf.set_font("Helvetica", 'B', 12)
             pdf.cell(190, 10, f"SERVICIO EN TURNO: {g_data['name']}", 0, 1, 'L')
@@ -230,7 +245,7 @@ if not st.session_state.get('logged_in', False):
     _, col_log, _ = st.columns([1, 1.4, 1])
     with col_log:
         st.markdown("<div style='text-align:center; font-size:80px;'>🛡️</div>", unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align:center; color:#0f172a;'>MANDO IESP 2026</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align:center;'>CONTROL DE GUARDIA DIGITAL</h2>", unsafe_allow_html=True)
         pwd = st.text_input("PASSWORD", type="password")
         if st.button("ENTRAR"):
             if pwd == "iesp2026": st.session_state.logged_in = True; st.rerun()
@@ -240,11 +255,11 @@ else:
         for c in g['cadets']: all_cadets_registry.append({"nombre": str(c.get('nombre', 'S/N')), "grupo": g['name'], "curso": c.get('curso', '-'), "obj": c})
 
     with st.sidebar:
-        st.markdown("<div class='logo-box'>CONTROL DE GUARDIA PRO</div>", unsafe_allow_html=True)
+        st.markdown("<div class='logo-box'>DIAGRAMACIÓN DIGITAL<br><span style='font-size:0.7rem; font-weight:400;'>I.E.S.P. TUCUMÁN</span></div>", unsafe_allow_html=True)
         st.info(f"🕒 **Sello Nube:**\n`{st.session_state.get('data_timestamp', '00:00:00')}`")
         st.success(f"☁️ **Estado:**\n`{st.session_state.get('last_sync_status', 'Conectado')}`")
         st.divider()
-        menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Intercambio", "📊 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
+        menu = st.radio("MANDO", ["🏠 Dashboard", "📊 Estadísticas", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Intercambio", "📊 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
         st.divider()
         if st.button("💾 SUBIR CAMBIOS (PC)"): 
             if save_cloud_data(): st.rerun()
@@ -258,7 +273,7 @@ else:
                 st.rerun()
         if st.button("🚪 SALIR"): st.session_state.logged_in = False; st.rerun()
 
-    st.markdown(f"<h1 style='color:#0f172a; font-weight:800; margin-top:10px;'>Operativo IESP <span style='color:#ef4444'>PRO</span></h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color:#0f172a; font-weight:800; margin-top:10px;'>DIAGRAMACION DIGITAL DE GUARDIAS DE PREVENCION</h1>", unsafe_allow_html=True)
 
     if menu == "🏠 Dashboard":
         sel_date = st.date_input("FECHA", get_now_tucuman().date(), key="dash_date")
@@ -268,26 +283,26 @@ else:
         with m1: st.markdown(f"<div class='metric-card'><p>Turno</p><h3>{gi['name']}</h3></div>", unsafe_allow_html=True)
         with m2: st.markdown(f"<div class='metric-card'><p>Total Efectivos</p><h3>{len(gi['cadets'])}</h3></div>", unsafe_allow_html=True)
         with m3: st.markdown(f"<div class='metric-card'><p>Sello Nube</p><h3>{st.session_state.get('data_timestamp','00:00:00')}</h3></div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='guard-header'><h3>📋 Nómina: {gi['name']}</h3></div>", unsafe_allow_html=True)
-        df_v = pd.DataFrame([{"N°": i+1, "Nombre": f"{'✅' if 'PRESENTE' in str(c.get('situacion','')) else '⚠️'} {str(c.get('nombre',''))}", "Función": str(c.get('funcion','')), "Estado": str(c.get('situacion',''))} for i, c in enumerate(gi['cadets'])])
+        st.markdown(f"<div class='guard-header'><h3>📋 Nómina de Servicio: {gi['name']}</h3></div>", unsafe_allow_html=True)
+        df_v = pd.DataFrame([{"N°": i+1, "Nombre": f"{'✅' if 'PRESENTE' in str(c.get('situacion','')) else '⚠️'} {str(c.get('nombre',''))}", "Función": str(c.get('funcion','')), "Situación": str(c.get('situacion',''))} for i, c in enumerate(gi['cadets'])])
         st.dataframe(df_v, use_container_width=True, hide_index=True, height=400)
-        st.markdown("### 🛠️ Mando Directo")
+        st.markdown("### 🛠️ Herramientas de Mando Directo")
         ca, cf, cs, cx, cr = st.columns(5)
         list_pure = [str(c.get('nombre','')).replace("✅ ","").replace("⚠️ ","").replace("⚡ ","").replace("🔄 ","").replace("⚖️ ","").replace("➕ ","").strip() for c in gi['cadets']]
         with ca:
             with st.container(border=True):
                 st.write("**Asistencia**")
-                c_as = st.selectbox("Efectivo", list_pure, key="as_s")
+                c_as = st.selectbox("Personal", list_pure, key="as_s")
                 n_st = st.selectbox("Estado", ["PRESENTE", "FRANCO", "A.R.T.", "AUSENTE", "NOTA MÉDICA"])
-                if st.button("Fijar"):
+                if st.button("Fijar Estado"):
                     if date_key not in st.session_state.statuses: st.session_state.statuses[date_key] = {}
                     st.session_state.statuses[date_key][c_as] = n_st; save_cloud_data(); st.rerun()
         with cf:
             with st.container(border=True):
                 st.write("**Función**")
-                c_fu = st.selectbox("Efectivo", list_pure, key="fu_s")
-                n_fu = st.text_input("Rol", placeholder="Ej: Centinela")
-                if st.button("Asignar"):
+                c_fu = st.selectbox("Personal", list_pure, key="fu_s")
+                n_fu = st.text_input("Nuevo Rol", placeholder="Ej: Centinela")
+                if st.button("Asignar Rol"):
                     if date_key not in st.session_state.role_overrides: st.session_state.role_overrides[date_key] = {}
                     st.session_state.role_overrides[date_key][c_fu] = n_fu; save_cloud_data(); st.rerun()
         with cs:
@@ -315,8 +330,15 @@ else:
                     if date_key not in st.session_state.removals: st.session_state.removals[date_key] = []
                     st.session_state.removals[date_key].append(c_rem); save_cloud_data(); st.rerun()
 
+    elif menu == "📊 Estadísticas":
+        st.markdown("### 📊 Registro Histórico de Prestación de Servicio")
+        if st.button("🔄 ACTUALIZAR CÓMPUTO"):
+            s_data = get_stats()
+            df_s = pd.DataFrame([{"Personal": k, "Grupo": v['grupo'], "Guardias Totales": v['total'], "Como Refuerzo": v['refuerzos']} for k,v in s_data.items()])
+            st.dataframe(df_s.sort_values(by="Guardias Totales", ascending=False), use_container_width=True, hide_index=True)
+
     elif menu == "📋 Todas las Guardias":
-        if st.button("⚠️ RESTABLECER LISTA DEL WORD", type="secondary", use_container_width=True):
+        if st.button("⚠️ RESTABLECER NÓMINA OFICIAL (WORD)", type="secondary", use_container_width=True):
             st.session_state.groups = get_official_groups(); save_cloud_data(); st.rerun()
         cols = st.columns(3)
         for i, g in enumerate(st.session_state.groups):
@@ -324,7 +346,7 @@ else:
                 with st.expander(f"📦 {g['name']}", expanded=True): st.table(pd.DataFrame(g['cadets'])[["nombre", "curso", "funcion"]])
 
     elif menu == "⚖️ Guardia Castigo":
-        pk_cast = str(st.date_input("FECHA CASTIGO", get_now_tucuman().date()))
+        pk_cast = str(st.date_input("FECHA", get_now_tucuman().date()))
         c1, c2 = st.columns(2)
         with c1:
             with st.container(border=True):
@@ -341,25 +363,29 @@ else:
                     col_p1.write(f"❌ {str(p.get('nombre',''))} - {str(p.get('funcion',''))}")
                     if col_p2.button("🗑️", key=f"dcast_{idx_d}"): st.session_state.punishments[pk_cast].pop(idx_d); save_cloud_data(); st.rerun()
 
+    elif menu == "🔄 Intercambio":
+        d_sw = st.date_input("FECHA", get_now_tucuman().date())
+        ga_idx = st.selectbox("Desde Grupo", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'])
+        ca_idx = st.selectbox("Cadete", range(len(st.session_state.groups[ga_idx]['cadets'])), format_func=lambda x: st.session_state.groups[ga_idx]['cadets'][x]['nombre'])
+        target_gb = st.selectbox("Hacia Grupo", [g['name'] for g in st.session_state.groups])
+        if st.button("TRASPASAR"):
+            cad = st.session_state.groups[ga_idx]['cadets'][ca_idx]
+            st.session_state.swaps.append({"date": str(d_sw), "cadet_id": str(cad.get('nombre','')), "cadet_obj": cad, "orig_group": st.session_state.groups[ga_idx]['name'], "target_group": target_gb})
+            save_cloud_data(); st.rerun()
+
     elif menu == "📊 Reportes PDF":
         st.markdown("### 📊 Generador de Diagramaciones Oficiales")
         col1, col2 = st.columns(2)
         s_rep = col1.date_input("Desde", get_now_tucuman().date())
         e_rep = col2.date_input("Hasta", get_now_tucuman().date())
         pdf_bytes = generate_pdf(s_rep, e_rep)
-        
-        st.download_button("⬇️ DESCARGAR REPORTE PDF (OFICIAL)", data=pdf_bytes, file_name=f"Diagramacion_IESP_{s_rep}.pdf", mime="application/pdf", use_container_width=True)
-        
+        st.download_button("⬇️ DESCARGAR PLANILLA PDF", data=pdf_bytes, file_name=f"Diagramacion_IESP_{s_rep}.pdf", mime="application/pdf", use_container_width=True)
         st.divider()
         st.markdown("### 📱 Enviar Parte Digital por WhatsApp")
-        st.info("Este botón genera un mensaje con la nómina y funciones detalladas para compartir por WhatsApp.")
-        msg_date = st.date_input("Fecha para Compartir", get_now_tucuman().date(), key="wa_d")
+        msg_date = st.date_input("Fecha de Parte", get_now_tucuman().date(), key="wa_d")
         gi_wa = get_processed_guard_for_date(msg_date)
-        
-        # Construcción del reporte digital (Nómina + Función)
         roster_text = "\n".join([f"• {str(c.get('nombre',''))} - *{str(c.get('funcion',''))}*" for c in gi_wa['cadets']])
-        wa_text = f"*PARTE OFICIAL DE GUARDIA IESP*\n📅 *Fecha:* {msg_date}\n🛡️ *Servicio:* {gi_wa['name']}\n👥 *Efectivos:* {len(gi_wa['cadets'])}\n\n*NÓMINA DE PERSONAL:*\n{roster_text}\n\n*Nota:* El PDF oficial se adjunta por separado."
-        
+        wa_text = f"*DIAGRAMACIÓN DE GUARDIA IESP*\n📅 *Fecha:* {msg_date}\n🛡️ *Servicio:* {gi_wa['name']}\n👥 *Efectivos:* {len(gi_wa['cadets'])}\n\n*NÓMINA DE PERSONAL:*\n{roster_text}\n\n*Nota:* El PDF oficial se adjunta por separado."
         wa_encoded = urllib.parse.quote(wa_text)
         st.link_button("📤 COMPARTIR NÓMINA POR WHATSAPP", f"https://wa.me/?text={wa_encoded}", use_container_width=True)
 
@@ -369,16 +395,16 @@ else:
                 with st.popover("➕ Alta de Efectivo"):
                     n_n = st.text_input("Nombre", key=f"nn_{i}")
                     n_c = st.selectbox("Curso", ["IIº Año", "IIIº Año"], key=f"nc_{i}")
-                    n_r = st.text_input("Función", value="Cadete Apostado", key=f"nr_{i}")
+                    n_role = st.text_input("Función", value="Cadete Apostado", key=f"nr_{i}")
                     if st.button("Confirmar Alta", key=f"nb_{i}"):
-                        st.session_state.groups[i]['cadets'].append({"n": len(g['cadets'])+1, "nombre": str(n_n), "curso": str(n_c), "funcion": str(n_r)}); save_cloud_data(); st.rerun()
+                        st.session_state.groups[i]['cadets'].append({"n": len(g['cadets'])+1, "nombre": str(n_n), "curso": str(n_c), "funcion": str(n_role)}); save_cloud_data(); st.rerun()
                 df_t = pd.DataFrame(g['cadets'])
                 res = st.data_editor(df_t, num_rows="dynamic", key=f"ed_{i}", use_container_width=True)
-                if st.button(f"Confirmar {g['id']}", key=f"bs_{i}"):
+                if st.button(f"Confirmar Cambios en {g['id']}", key=f"bs_{i}"):
                     ul = res.to_dict('records')
                     for idx, c in enumerate(ul): c['n'] = idx + 1
                     st.session_state.groups[i]['cadets'] = ul; save_cloud_data(); st.rerun()
 
     elif menu == "⚙️ Ajustes":
-        st.session_state.start_date = st.date_input("Inicio de Ciclo", st.session_state.start_date)
+        st.session_state.start_date = st.date_input("Inicio del Ciclo", st.session_state.start_date)
         if st.button("GUARDAR"): save_cloud_data(); st.success("Ajustado")
