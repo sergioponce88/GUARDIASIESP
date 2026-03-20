@@ -57,24 +57,22 @@ def inject_modern_css():
 
 inject_modern_css()
 
-# --- MOTOR DE SINCRONIZACIÓN (NIVEL 5 - REFORZADO) ---
+# --- MOTOR DE SINCRONIZACIÓN (NIVEL 5) ---
 def get_cloud_params():
     try:
-        conf = json.loads(st.secrets["__firebase_config"])
-        project_id = conf.get("projectId")
-        api_key = conf.get("apiKey")
-        app_id = st.secrets.get("__app_id", "iesp-v2026-final-oficial")
-        return project_id, app_id, api_key
-    except:
-        try:
-            return st.secrets["firebase"]["project_id"], "iesp-v2026-final-oficial", st.secrets["__firebase_config_api_key"]
-        except: return None, None, None
+        if "__firebase_config" in st.secrets:
+            conf = json.loads(st.secrets["__firebase_config"])
+            return conf.get("projectId"), "iesp-v2026-final-oficial", conf.get("apiKey")
+        elif "firebase" in st.secrets:
+            return st.secrets["firebase"]["project_id"], "iesp-v2026-final-oficial", st.secrets.get("__firebase_config_api_key", "")
+    except: pass
+    return None, None, None
 
 PROJECT_ID, APP_ID, API_KEY = get_cloud_params()
-URL_DOC = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/artifacts/{APP_ID}/public/data/global_state?key={API_KEY}"
+URL_DOC = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/artifacts/{APP_ID}/public/data/global_state?key={API_KEY}" if PROJECT_ID else ""
 
 def load_from_cloud():
-    if not PROJECT_ID or not API_KEY: return None
+    if not URL_DOC: return None
     try:
         ts = str(int(time.time() * 1000))
         headers = {"Cache-Control": "no-cache", "Pragma": "no-cache"}
@@ -82,14 +80,11 @@ def load_from_cloud():
         if resp.status_code == 200:
             fields = resp.json().get("fields", {})
             return json.loads(fields.get("json_data", {}).get("stringValue", "{}"))
-        else:
-            st.session_state.last_err = f"Error {resp.status_code}: {resp.text[:30]}"
-    except Exception as e:
-        st.session_state.last_err = f"Fallo: {str(e)[:30]}"
+    except: pass
     return None
 
 def sync_to_cloud():
-    if not PROJECT_ID or not API_KEY: return
+    if not URL_DOC: return
     st.session_state.data_timestamp = get_now_tucuman().strftime("%H:%M:%S")
     payload = {
         "groups": st.session_state.groups,
@@ -108,7 +103,7 @@ def sync_to_cloud():
             st.session_state.last_sync_status = f"✅ Subido {st.session_state.data_timestamp}"
             st.toast("✅ Nube Actualizada")
         else:
-            st.session_state.last_sync_status = f"❌ Fallo {res.status_code}"
+            st.session_state.last_sync_status = f"❌ Error {res.status_code}"
     except:
         st.session_state.last_sync_status = "❌ Sin conexión"
 
@@ -125,7 +120,7 @@ DATOS_GRUPOS_BASE = [
     {"id": "G9", "name": "GRUPO N° 5 de III° Año", "cadets": [{"n": 1, "nombre": "Aybar Eduardo", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}] + [{"n": i+2, "nombre": f"Cadete G9-{i+1}", "curso": "IIIº Año", "funcion": "Cadete Apostado"} for i in range(12)]}
 ]
 
-# --- INICIALIZACIÓN ---
+# --- INICIALIZACIÓN DE ESTADO SEGURO ---
 if 'initialized' not in st.session_state:
     st.session_state.data_timestamp = "00:00:00"
     st.session_state.last_sync_status = "Iniciando..."
@@ -137,7 +132,9 @@ if 'initialized' not in st.session_state:
     st.session_state.swaps = []
     st.session_state.punishments = {}
     st.session_state.start_date = datetime(2026, 3, 19).date()
+    st.session_state.logged_in = False
     
+    # Carga silenciosa
     data = load_from_cloud()
     if data:
         st.session_state.update(data)
@@ -161,11 +158,9 @@ def get_processed_guard_for_date(date):
     for c in base_group['cadets']:
         c_name = c.get('nombre', 'Sin Nombre').strip()
         if any(s for s in swaps if s['cadet_id'].strip() == c_name and s['date'] == date_key and s['orig_group'] == base_group['name']): continue
-        
         cd = c.copy()
         cd['situacion'] = day_st.get(c_name, "PRESENTE")
         cd['funcion'] = day_ro.get(c_name, c.get('funcion'))
-        
         if c_name in day_ov:
             cd['nombre'] = f"🔄 {day_ov[c_name]['nombre']}"
             cd['situacion'] = "REEMPLAZO"
@@ -213,7 +208,7 @@ def generate_pdf(start_date, end_date):
         curr += timedelta(days=1)
     return bytes(pdf.output())
 
-# --- INTERFAZ ---
+# --- LOGIN ---
 if not st.session_state.get('logged_in', False):
     _, col_log, _ = st.columns([1, 1.4, 1])
     with col_log:
@@ -228,7 +223,7 @@ else:
         st.image(get_logo_path(), width=100)
         st.markdown(f"### 🛡️ MANDO DE GUARDIA")
         st.info(f"🕒 **Sello Nube:**\n`{st.session_state.get('data_timestamp', '00:00:00')}`")
-        st.success(f"☁️ **Estado:**\n`{st.session_state.get('last_sync_status', 'Sin Datos')}`")
+        st.success(f"☁️ **Sincronía:**\n`{st.session_state.get('last_sync_status', 'Sin Datos')}`")
         st.divider()
         menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Intercambio", "📂 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
         st.divider()
@@ -247,12 +242,6 @@ else:
                         st.session_state.start_date = datetime.strptime(data.get("start_date"), "%Y-%m-%d").date()
                     st.session_state.last_sync_status = f"✅ OK {get_now_tucuman().strftime('%H:%M:%S')}"
                     st.rerun()
-
-        with st.expander("🔍 RED Y LOGS"):
-            st.caption(f"Error: {st.session_state.get('last_err', 'Ninguno')}")
-            if st.button("🗑️ Reset Local"):
-                st.session_state.clear()
-                st.rerun()
         if st.button("🚪 SALIR"): st.session_state.logged_in = False; st.rerun()
 
     # Cabecera
@@ -308,7 +297,6 @@ else:
                     sync_to_cloud(); st.rerun()
 
     elif menu == "📋 Todas las Guardias":
-        st.markdown("### 📋 Nóminas Permanentes")
         gi_today = get_processed_guard_for_date(get_now_tucuman().date())
         cols = st.columns(3)
         for i, g in enumerate(st.session_state.groups):
@@ -319,7 +307,6 @@ else:
                     st.table(pd.DataFrame(g['cadets'])[["nombre", "curso", "funcion"]])
 
     elif menu == "⚖️ Guardia Castigo":
-        st.markdown("### ⚖️ Gestión de Castigos (Refuerzos)")
         pk_cast = str(st.date_input("Fecha Castigo", get_now_tucuman().date(), key="cd"))
         g_idx = st.selectbox("Grupo Origen", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'])
         c_idx = st.selectbox("Cadete", range(len(st.session_state.groups[g_idx]['cadets'])), format_func=lambda x: st.session_state.groups[g_idx]['cadets'][x]['nombre'])
@@ -329,7 +316,6 @@ else:
             sync_to_cloud(); st.rerun()
 
     elif menu == "🔄 Intercambio":
-        st.markdown("### 🔄 Terminal de Traspaso Bidireccional")
         d_sw = st.date_input("Fecha", get_now_tucuman().date())
         ga = st.selectbox("Grupo A", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'], key="ga")
         ca = st.selectbox("Cadete A", range(len(st.session_state.groups[ga]['cadets'])), format_func=lambda x: st.session_state.groups[ga]['cadets'][x]['nombre'], key="ca")
@@ -357,5 +343,5 @@ else:
 
     elif menu == "⚙️ Ajustes":
         st.session_state.start_date = st.date_input("Inicio de Ciclo", st.session_state.start_date)
-        if st.button("GUARDAR"):
+        if st.button("GUARDAR CONFIGURACIÓN"):
             sync_to_cloud(); st.success("Ajustado")
