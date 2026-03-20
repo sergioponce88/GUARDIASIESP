@@ -135,7 +135,7 @@ def get_official_groups():
         {"id": "G9", "name": "GRUPO N° 5 de III° Año", "cadets": [{"n": 1, "nombre": "Aybar Eduardo", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Quiroga Melina", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}] + [{"n": i+3, "nombre": n, "curso": "IIº Año", "funcion": "Cadete Apostado"} for i, n in enumerate(["Montero Irina", "Moreno Karen", "Sotelo Leandro", "Sotelo Santiago", "Verón González", "Villagra Lucas", "Villalba David", "Vizcarra José", "Ybarra Franco", "Zamorano Sergio", "Zarate Medina Lucas"])]}
     ]
 
-# --- INICIALIZACIÓN DE ESTADO SEGURO ---
+# --- INICIALIZACIÓN ---
 if 'initialized' not in st.session_state:
     st.session_state.data_timestamp = "00:00:00"
     st.session_state.last_sync_status = "Iniciando..."
@@ -184,42 +184,18 @@ def get_processed_guard_for_date(date):
         for s in st.session_state.swaps:
             if s['date'] == date_key and s['target_group'] == base_group['name']:
                 cad_swap = s['cadet_obj'].copy()
-                cad_swap['nombre'] = f"⚡ {str(cad_swap.get('nombre', 'S/N'))}"
-                cad_swap['situacion'] = f"INTERCAMBIO"; processed.append(cad_swap)
+                cad_swap['nombre'] = f"⚡ {str(cad_swap.get('nombre', 'S/N'))}"; cad_swap['situacion'] = f"INTERCAMBIO"; processed.append(cad_swap)
                 
         for p in punishments:
             cad_p = p.copy()
-            cad_p['nombre'] = f"⚖️ {str(cad_p.get('nombre', 'S/N'))}"
-            cad_p['situacion'] = "GUARDIA CASTIGO"; processed.append(cad_p)
+            cad_p['nombre'] = f"⚖️ {str(cad_p.get('nombre', 'S/N'))}"; cad_p['situacion'] = "GUARDIA CASTIGO"; processed.append(cad_p)
 
         for e in extras:
             cad_e = e.copy()
-            cad_e['nombre'] = f"➕ {str(cad_e.get('nombre', 'S/N'))}"
-            cad_e['situacion'] = "REFUERZO"; processed.append(cad_e)
+            cad_e['nombre'] = f"➕ {str(cad_e.get('nombre', 'S/N'))}"; cad_e['situacion'] = "REFUERZO"; processed.append(cad_e)
                 
         return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
-    except:
-        return {"name": "Error de Datos", "cadets": [], "id": "ERR"}
-
-# --- MOTOR DE ESTADÍSTICAS ---
-def get_stats():
-    try:
-        today = get_now_tucuman().date()
-        start = st.session_state.start_date
-        current = start
-        stats = {}
-        for g in st.session_state.groups:
-            for c in g['cadets']: stats[c['nombre']] = {"total": 0, "grupo": g['name'], "refuerzos": 0}
-        while current <= today:
-            guard_day = get_processed_guard_for_date(current)
-            for c in guard_day['cadets']:
-                name_clean = str(c.get('nombre','')).replace("✅ ","").replace("⚠️ ","").replace("⚡ ","").replace("🔄 ","").replace("⚖️ ","").replace("➕ ","").strip()
-                if name_clean in stats:
-                    stats[name_clean]["total"] += 1
-                    if any(x in str(c.get('situacion','')) for x in ["REFUERZO", "GUARDIA CASTIGO"]): stats[name_clean]["refuerzos"] += 1
-            current += timedelta(days=1)
-        return stats
-    except: return {}
+    except: return {"name": "Error de Datos", "cadets": [], "id": "ERR"}
 
 # --- GENERADOR DE PDF BLINDADO ---
 def generate_pdf(start_date, end_date):
@@ -247,15 +223,14 @@ def generate_pdf(start_date, end_date):
                 pdf.cell(30, 7, "", 1, 1)
             curr += timedelta(days=1)
         return bytes(pdf.output())
-    except Exception as e:
-        return f"Error generando PDF: {str(e)}".encode()
+    except Exception as e: return f"Error PDF: {str(e)}".encode()
 
 # --- INTERFAZ ---
 if not st.session_state.get('logged_in', False):
     _, col_log, _ = st.columns([1, 1.4, 1])
     with col_log:
         st.markdown("<div style='text-align:center; font-size:80px;'>🛡️</div>", unsafe_allow_html=True)
-        st.markdown("<h2 style='text-align:center;'>MANDO IESP 2026</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align:center; color:#0f172a;'>MANDO IESP 2026</h2>", unsafe_allow_html=True)
         pwd = st.text_input("PASSWORD", type="password")
         if st.button("ENTRAR"):
             if pwd == "iesp2026": st.session_state.logged_in = True; st.rerun()
@@ -269,7 +244,7 @@ else:
         st.info(f"🕒 **Sello Nube:**\n`{st.session_state.get('data_timestamp', '00:00:00')}`")
         st.success(f"☁️ **Estado:**\n`{st.session_state.get('last_sync_status', 'Conectado')}`")
         st.divider()
-        menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📊 Estadísticas", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Intercambio", "📊 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
+        menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Intercambio", "📊 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
         st.divider()
         if st.button("💾 SUBIR CAMBIOS (PC)"): 
             if save_cloud_data(): st.rerun()
@@ -279,7 +254,7 @@ else:
                 for k, v in data.items():
                     if k == "start_date": st.session_state[k] = datetime.strptime(v, "%Y-%m-%d").date()
                     else: st.session_state[k] = v
-                st.session_state.last_sync_status = f"✅ Sinc: {get_now_tucuman().strftime('%H:%M:%S')}"
+                st.session_state.last_sync_status = f"✅ Actualizado {get_now_tucuman().strftime('%H:%M:%S')}"
                 st.rerun()
         if st.button("🚪 SALIR"): st.session_state.logged_in = False; st.rerun()
 
@@ -302,21 +277,19 @@ else:
         with ca:
             with st.container(border=True):
                 st.write("**Asistencia**")
-                c_as = st.selectbox("Personal", list_pure, key="as_s")
+                c_as = st.selectbox("Efectivo", list_pure, key="as_s")
                 n_st = st.selectbox("Estado", ["PRESENTE", "FRANCO", "A.R.T.", "AUSENTE", "NOTA MÉDICA"])
-                if st.button("Grabar"):
+                if st.button("Fijar"):
                     if date_key not in st.session_state.statuses: st.session_state.statuses[date_key] = {}
-                    st.session_state.statuses[date_key][c_as] = n_st
-                    save_cloud_data(); st.rerun()
+                    st.session_state.statuses[date_key][c_as] = n_st; save_cloud_data(); st.rerun()
         with cf:
             with st.container(border=True):
                 st.write("**Función**")
-                c_fu = st.selectbox("Personal", list_pure, key="fu_s")
-                n_fu = st.text_input("Nuevo Rol", placeholder="Ej: Centinela")
+                c_fu = st.selectbox("Efectivo", list_pure, key="fu_s")
+                n_fu = st.text_input("Rol", placeholder="Ej: Centinela")
                 if st.button("Asignar"):
                     if date_key not in st.session_state.role_overrides: st.session_state.role_overrides[date_key] = {}
-                    st.session_state.role_overrides[date_key][c_fu] = n_fu
-                    save_cloud_data(); st.rerun()
+                    st.session_state.role_overrides[date_key][c_fu] = n_fu; save_cloud_data(); st.rerun()
         with cs:
             with st.container(border=True):
                 st.write("**Suplencia**")
@@ -324,8 +297,7 @@ else:
                 idx_sup = st.selectbox("Suplente", range(len(all_cadets_registry)), format_func=lambda x: f"{all_cadets_registry[x]['nombre']} ({all_cadets_registry[x]['grupo']})", key="su_all")
                 if st.button("Cambiar"):
                     if date_key not in st.session_state.overrides: st.session_state.overrides[date_key] = {}
-                    st.session_state.overrides[date_key][tit] = all_cadets_registry[idx_sup]['obj']
-                    save_cloud_data(); st.rerun()
+                    st.session_state.overrides[date_key][tit] = all_cadets_registry[idx_sup]['obj']; save_cloud_data(); st.rerun()
         with cx:
             with st.container(border=True):
                 st.write("**Refuerzo**")
@@ -342,13 +314,6 @@ else:
                 if st.button("Remover"):
                     if date_key not in st.session_state.removals: st.session_state.removals[date_key] = []
                     st.session_state.removals[date_key].append(c_rem); save_cloud_data(); st.rerun()
-
-    elif menu == "📊 Estadísticas":
-        st.markdown("### 📊 Registro de Prestación de Servicio")
-        if st.button("🔄 ACTUALIZAR CÓMPUTO HISTÓRICO"):
-            s_data = get_stats()
-            df_s = pd.DataFrame([{"Personal": k, "Grupo": v['grupo'], "Guardias Realizadas": v['total'], "Como Refuerzo": v['refuerzos']} for k,v in s_data.items()])
-            st.dataframe(df_s.sort_values(by="Guardias Realizadas", ascending=False), use_container_width=True, hide_index=True)
 
     elif menu == "📋 Todas las Guardias":
         if st.button("⚠️ RESTABLECER LISTA DEL WORD", type="secondary", use_container_width=True):
@@ -376,33 +341,27 @@ else:
                     col_p1.write(f"❌ {str(p.get('nombre',''))} - {str(p.get('funcion',''))}")
                     if col_p2.button("🗑️", key=f"dcast_{idx_d}"): st.session_state.punishments[pk_cast].pop(idx_d); save_cloud_data(); st.rerun()
 
-    elif menu == "🔄 Intercambio":
-        d_sw = st.date_input("FECHA", get_now_tucuman().date())
-        ga_idx = st.selectbox("Desde Grupo", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'])
-        ca_idx = st.selectbox("Cadete", range(len(st.session_state.groups[ga_idx]['cadets'])), format_func=lambda x: st.session_state.groups[ga_idx]['cadets'][x]['nombre'])
-        target_gb = st.selectbox("Hacia Grupo", [g['name'] for g in st.session_state.groups])
-        if st.button("TRASPASAR"):
-            cad = st.session_state.groups[ga_idx]['cadets'][ca_idx]
-            st.session_state.swaps.append({"date": str(d_sw), "cadet_id": str(cad.get('nombre','')), "cadet_obj": cad, "orig_group": st.session_state.groups[ga_idx]['name'], "target_group": target_gb})
-            save_cloud_data(); st.rerun()
-
     elif menu == "📊 Reportes PDF":
-        st.markdown("### 📊 Generador de Diagramaciones")
-        c_r1, c_r2 = st.columns(2)
-        s_rep = c_r1.date_input("Desde", get_now_tucuman().date())
-        e_rep = c_r2.date_input("Hasta", get_now_tucuman().date())
+        st.markdown("### 📊 Generador de Diagramaciones Oficiales")
+        col1, col2 = st.columns(2)
+        s_rep = col1.date_input("Desde", get_now_tucuman().date())
+        e_rep = col2.date_input("Hasta", get_now_tucuman().date())
         pdf_bytes = generate_pdf(s_rep, e_rep)
         
-        st.download_button("⬇️ DESCARGAR PLANILLA PDF", data=pdf_bytes, file_name=f"Diagramacion_IESP_{s_rep}.pdf", mime="application/pdf", use_container_width=True)
+        st.download_button("⬇️ DESCARGAR REPORTE PDF (OFICIAL)", data=pdf_bytes, file_name=f"Diagramacion_IESP_{s_rep}.pdf", mime="application/pdf", use_container_width=True)
         
         st.divider()
-        st.markdown("### 📱 Enviar Aviso de Reporte")
-        st.info("Utilice este botón después de descargar el PDF para informar la entrega oficial al grupo de mandos.")
-        msg_date = st.date_input("Reporte del día:", get_now_tucuman().date(), key="wa_d")
+        st.markdown("### 📱 Enviar Parte Digital por WhatsApp")
+        st.info("Este botón genera un mensaje con la nómina y funciones detalladas para compartir por WhatsApp.")
+        msg_date = st.date_input("Fecha para Compartir", get_now_tucuman().date(), key="wa_d")
         gi_wa = get_processed_guard_for_date(msg_date)
-        wa_text = f"*ENTREGA DE DIAGRAMACIÓN OFICIAL IESP*\n📅 *Fecha:* {msg_date}\n🛡️ *Servicio:* {gi_wa['name']}\n👥 *Efectivos:* {len(gi_wa['cadets'])}\n\n*Nota:* El archivo PDF oficial ha sido generado y se adjunta a continuación."
+        
+        # Construcción del reporte digital (Nómina + Función)
+        roster_text = "\n".join([f"• {str(c.get('nombre',''))} - *{str(c.get('funcion',''))}*" for c in gi_wa['cadets']])
+        wa_text = f"*PARTE OFICIAL DE GUARDIA IESP*\n📅 *Fecha:* {msg_date}\n🛡️ *Servicio:* {gi_wa['name']}\n👥 *Efectivos:* {len(gi_wa['cadets'])}\n\n*NÓMINA DE PERSONAL:*\n{roster_text}\n\n*Nota:* El PDF oficial se adjunta por separado."
+        
         wa_encoded = urllib.parse.quote(wa_text)
-        st.link_button("📤 AVISAR ENTREGA POR WHATSAPP", f"https://wa.me/?text={wa_encoded}", use_container_width=True)
+        st.link_button("📤 COMPARTIR NÓMINA POR WHATSAPP", f"https://wa.me/?text={wa_encoded}", use_container_width=True)
 
     elif menu == "👥 Redistribución":
         for i, g in enumerate(st.session_state.groups):
@@ -422,4 +381,4 @@ else:
 
     elif menu == "⚙️ Ajustes":
         st.session_state.start_date = st.date_input("Inicio de Ciclo", st.session_state.start_date)
-        if st.button("GUARDAR CICLO"): save_cloud_data(); st.success("Ajustado")
+        if st.button("GUARDAR"): save_cloud_data(); st.success("Ajustado")
