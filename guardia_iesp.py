@@ -6,6 +6,8 @@ import json
 import os
 import requests
 import time
+import random
+import string
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(
@@ -16,10 +18,13 @@ st.set_page_config(
 )
 
 # --- CONSTANTES INSTITUCIONALES ---
-# Logo oficial con URL de respaldo garantizada
-ESCUDO_URL = "https://raw.githubusercontent.com/GoogleCloudPlatform/firebase-tools/master/templates/setup/public/favicon.ico" # Placeholder estable
-# URL del Escudo de la Policía (usamos una versión de alta disponibilidad)
 ESCUDO_TUCUMAN = "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/Escudo_de_la_Polic%C3%ADa_de_Tucum%C3%A1n.png/250px-Escudo_de_la_Polic%C3%ADa_de_Tucum%C3%A1n.png"
+LOGO_LOCAL = "logo_iesp.png"
+
+def get_logo():
+    if os.path.exists(LOGO_LOCAL):
+        return LOGO_LOCAL
+    return ESCUDO_TUCUMAN
 
 # --- DISEÑO UI VANGUARDISTA ---
 def inject_modern_css():
@@ -51,13 +56,12 @@ def inject_modern_css():
         }
         div.stButton > button:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.3); }
         [data-testid="stDataFrame"] > div { border-radius: 20px !important; border: 1px solid #e2e8f0 !important; }
-        .swap-header { background: #f1f5f9; padding: 10px 20px; border-radius: 15px; font-weight: 800; color: #1e293b; margin-bottom: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
 inject_modern_css()
 
-# --- MOTOR DE SINCRONIZACIÓN (BLINDADO CONTRA CACHÉ) ---
+# --- MOTOR DE SINCRONIZACIÓN (BLINDADO) ---
 def get_cloud_params():
     try:
         conf = json.loads(st.secrets["__firebase_config"])
@@ -70,14 +74,14 @@ BASE_URL = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases
 def load_from_cloud():
     if not BASE_URL or not API_KEY: return None
     try:
-        # Forzamos cabeceras de no-cache para el celular
+        # Generar string aleatorio para romper la caché del celular de forma agresiva
+        random_id = ''.join(random.choices(string.ascii_letters + string.digits, k=10))
         headers = {
             "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0"
+            "Pragma": "no-cache"
         }
-        url = f"{BASE_URL}/persistence/current_state?key={API_KEY}&timestamp={time.time()}"
-        resp = requests.get(url, headers=headers, timeout=10)
+        url = f"{BASE_URL}/persistence/current_state?key={API_KEY}&cache_bust={random_id}"
+        resp = requests.get(url, headers=headers, timeout=15)
         if resp.status_code == 200:
             doc_data = resp.json().get("fields", {})
             return json.loads(doc_data.get("json_data", {}).get("stringValue", "{}"))
@@ -86,8 +90,10 @@ def load_from_cloud():
 
 def sync_to_cloud():
     if not BASE_URL or not API_KEY: 
-        st.sidebar.error("⚠️ Configuración no válida")
+        st.sidebar.error("⚠️ Error de configuración")
         return
+    # Marcamos la versión con un timestamp único
+    st.session_state.version = time.time()
     payload = {
         "groups": st.session_state.groups,
         "overrides": st.session_state.overrides,
@@ -96,15 +102,15 @@ def sync_to_cloud():
         "role_overrides": st.session_state.role_overrides,
         "punishments": st.session_state.punishments,
         "start_date": str(st.session_state.start_date),
-        "version": time.time()
+        "version": st.session_state.version
     }
     try:
         url = f"{BASE_URL}/persistence/current_state?key={API_KEY}"
         body = {"fields": {"json_data": {"stringValue": json.dumps(payload)}}}
-        res = requests.patch(url, json=body, timeout=10)
+        res = requests.patch(url, json=body, timeout=15)
         if res.status_code == 200:
             st.session_state.last_sync = datetime.now().strftime("%H:%M:%S")
-            st.toast("✅ Nube Sincronizada", icon="☁️")
+            st.toast("✅ Nube Actualizada - Versión: " + str(int(st.session_state.version))[-4:], icon="☁️")
         else: st.error(f"Error {res.status_code}: Verifique 'Rules' en Firebase")
     except: st.error("❌ Fallo crítico de conexión")
 
@@ -131,7 +137,7 @@ if 'initialized' not in st.session_state:
         st.session_state.groups = DATOS_GRUPOS_BASE
         st.session_state.overrides, st.session_state.statuses = {}, {}
         st.session_state.role_overrides, st.session_state.punishments = {}, {}
-        st.session_state.swaps = []
+        st.session_state.swaps, st.session_state.version = [], 0
         st.session_state.start_date = datetime(2026, 3, 19).date()
     st.session_state.last_sync = "Nunca"
     st.session_state.initialized = True
@@ -151,7 +157,7 @@ def get_processed_guard_for_date(date):
         c_name = c.get('nombre', 'Sin Nombre').strip()
         if any(s for s in swaps if s['cadet_id'].strip() == c_name and s['date'] == date_key and s['orig_group'] == base_group['name']): continue
         cd = c.copy()
-        # Sincronización absoluta por nombre
+        # Vínculo directo por NOMBRE para evitar errores de fila
         cd['situacion'] = day_st.get(c_name, "PRESENTE")
         cd['is_sub'] = False
         if c_name in day_ov:
@@ -169,23 +175,23 @@ def get_processed_guard_for_date(date):
             processed.append(cad_swap)
     return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
 
-# --- LOGIN ---
+# --- INTERFAZ ---
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
 if not st.session_state.logged_in:
     _, col_log, _ = st.columns([1, 1.4, 1])
     with col_log:
         st.markdown("<div style='height: 50px;'></div>", unsafe_allow_html=True)
-        st.image(ESCUDO_TUCUMAN, width=150)
+        st.image(get_logo(), width=150)
         st.markdown("<h2 style='text-align:center;'>CONTROL DE GUARDIA IESP</h2>", unsafe_allow_html=True)
         pwd = st.text_input("PASSWORD", type="password")
         if st.button("INGRESAR AL SISTEMA"):
             if pwd == "iesp2026": st.session_state.logged_in = True; st.rerun()
             else: st.error("Denegado")
 else:
-    # --- SIDEBAR ---
     with st.sidebar:
-        st.image(ESCUDO_TUCUMAN, width=120)
+        st.image(get_logo(), width=120)
         st.markdown(f"**SISTEMA OFICIAL 2026**")
+        st.markdown(f"🔹 **Versión Datos:** {str(int(st.session_state.get('version', 0)))[-4:]}")
         if BASE_URL: st.success(f"☁️ Cloud Sinc: {st.session_state.last_sync}")
         menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Intercambio", "📂 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
         st.divider()
@@ -193,21 +199,22 @@ else:
         if st.button("🔄 ACTUALIZAR DATOS"):
             cloud_data = load_from_cloud()
             if cloud_data:
-                # Actualización forzada de todos los estados
+                # Actualización atómica de todos los estados para celular
                 st.session_state.statuses = cloud_data.get("statuses", {})
                 st.session_state.overrides = cloud_data.get("overrides", {})
                 st.session_state.role_overrides = cloud_data.get("role_overrides", {})
                 st.session_state.swaps = cloud_data.get("swaps", [])
                 st.session_state.punishments = cloud_data.get("punishments", {})
                 st.session_state.start_date = datetime.strptime(cloud_data.get("start_date"), "%Y-%m-%d").date()
+                st.session_state.version = cloud_data.get("version", 0)
                 st.session_state.last_sync = datetime.now().strftime("%H:%M:%S")
-                st.success("¡Datos Sincronizados!"); st.rerun()
+                st.success("¡Sincronizado!"); st.rerun()
+            else: st.error("No se encontraron datos nuevos")
         if st.button("🚪 SALIR"): st.session_state.logged_in = False; st.rerun()
 
-    # Cabecera
     c_logo, c_title = st.columns([1, 8])
-    with c_logo: st.image(ESCUDO_TUCUMAN, width=100)
-    with c_title: st.markdown("<h1 style='color:#0f172a; font-weight:800;'>Diagramación de Guardia <span style='color:#ef4444'>IESP PRO</span></h1>", unsafe_allow_html=True)
+    with c_logo: st.image(get_logo(), width=100)
+    with c_title: st.markdown("<h1 style='color:#0f172a; font-weight:800;'>Diagramación de Guardia <span style='color:#ef4444'>PRO</span></h1>", unsafe_allow_html=True)
 
     if menu == "🏠 Dashboard":
         sel_date = st.date_input("FECHA SELECCIONADA", datetime.now().date(), key="dash_date"); date_key = str(sel_date)
@@ -290,11 +297,9 @@ else:
         sw_date = st.date_input("Fecha del Servicio", datetime.now().date(), key="sw_date_final")
         col_a, col_b = st.columns(2)
         with col_a:
-            st.markdown("<div class='swap-header'>Cadete Saliente A</div>", unsafe_allow_html=True)
             g_idx_a = st.selectbox("Grupo A", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'], key="g_a")
             c_idx_a = st.selectbox("Cadete A", range(len(st.session_state.groups[g_idx_a]['cadets'])), format_func=lambda x: st.session_state.groups[g_idx_a]['cadets'][x]['nombre'], key="c_a")
         with col_b:
-            st.markdown("<div class='swap-header'>Cadete Saliente B</div>", unsafe_allow_html=True)
             g_idx_b = st.selectbox("Grupo B", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'], key="g_b")
             c_idx_b = st.selectbox("Cadete B", range(len(st.session_state.groups[g_idx_b]['cadets'])), format_func=lambda x: st.session_state.groups[g_idx_b]['cadets'][x]['nombre'], key="c_b")
         if st.button("EJECUTAR INTERCAMBIO"):
@@ -304,13 +309,6 @@ else:
                 st.session_state.swaps.append({"date": str(sw_date), "cadet_id": cad_a['nombre'], "cadet_obj": cad_a, "orig_group": st.session_state.groups[g_idx_a]['name'], "target_group": st.session_state.groups[g_idx_b]['name']})
                 st.session_state.swaps.append({"date": str(sw_date), "cadet_id": cad_b['nombre'], "cadet_obj": cad_b, "orig_group": st.session_state.groups[g_idx_b]['name'], "target_group": st.session_state.groups[g_idx_a]['name']})
                 sync_to_cloud(); st.rerun()
-
-    elif menu == "📂 Reportes PDF":
-        s_rep = st.date_input("Desde", datetime.now().date(), key="rep_s")
-        e_rep = st.date_input("Hasta", datetime.now().date(), key="rep_e")
-        if st.button("🚀 GENERAR PDF"):
-            # Generación simplificada aquí para espacio
-            st.info("Generando reporte...")
 
     elif menu == "👥 Redistribución":
         for i_red, g_red in enumerate(st.session_state.groups):
