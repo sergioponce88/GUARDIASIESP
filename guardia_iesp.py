@@ -52,6 +52,12 @@ def inject_modern_css():
         .metric-label { color: #94a3b8; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; }
         .metric-value { color: #0f172a; font-size: 1.3rem; font-weight: 800; margin-top: 0.3rem; }
 
+        /* ALERTAS */
+        .alert-banner {
+            background: #fef2f2; border: 1px solid #fee2e2; padding: 1.2rem; border-radius: 20px;
+            color: #991b1b; font-weight: 700; margin-bottom: 1.5rem; border-left: 6px solid #ef4444;
+        }
+
         /* TABLAS SIN SCROLL */
         [data-testid="stDataFrame"] > div { border: none !important; }
     </style>
@@ -59,13 +65,13 @@ def inject_modern_css():
 
 inject_modern_css()
 
-# --- DATOS INSTITUCIONALES INTEGRADOS ---
+# --- DATOS INSTITUCIONALES COMPLETOS (Base de Datos Integrada) ---
 DATOS_GRUPOS = [
     {"id": "G1", "name": "GRUPO N° 1 de II° Año", "cadets": [{"n": 1, "nombre": "Forales Emanuel", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Oliva Samuel", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Abregú Francisco", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Acosta Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Agüero Alexis", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Albarracín Federico", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Albornoz Lautaro", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Aranda Héctor", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Bazán Hernán", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "Brizuela Miguel", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "Bustamante Marcelo", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Cantos Núñez Javier", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Castro Miguel", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 14, "nombre": "Cequeira Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
     {"id": "G2", "name": "GRUPO N° 2 de II° Año", "cadets": [{"n": 1, "nombre": "Mercado Marcelo", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Galván Maira", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Ibarra Martina", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Issa Tiara", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Medina Emilse", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Coronel Luis", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Cruz Braian", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Fernández Adrián", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Figueroa Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "González Ignacio", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "González Salomón Gonzalo", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Guevara Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Ibáñez Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 14, "nombre": "Jaime Christian", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
     {"id": "G3", "name": "GRUPO N° 3 de II° Año", "cadets": [{"n": 1, "nombre": "Argañaraz Patricio", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Centeno Luis", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Jiménez Gonzalo", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Juárez Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Lagarde Christian", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Lazarte José", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Maldonado Clemente", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Medina Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Medina Vélez Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "Medrano Ángel", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "Mena Aníbal", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Monteros Mateo", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Montes Nahuel", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
     {"id": "G4", "name": "GRUPO N° 4 de II° Año", "cadets": [{"n": 1, "nombre": "Gramajo Andrea", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Pintos Patricio", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Monteros Brenda", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Montes Eugenia", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Núñez Luciano", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Paliza Joaquín", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Ponze de León Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Quiroga López Luis", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Reyes Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "Reyes Alan", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "Reynoso Martínez Luciano", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Roja Tomás", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Silva Axel", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 14, "nombre": "Sueldo Rodrigo Gastón", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 15, "nombre": "Soria José Lionel", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
-    {"id": "G5", "name": "GRUPO N° 1 de III° Año", "cadets": [{"n": 1, "nombre": "Juárez Ignacio", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Contreras Melani", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Bareiro Blanca", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Etchenique Shamira", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Abregú Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Aguirre Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Arias Ramiro", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Argañaraz Lezcano Roberto", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Ávila José", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "Bazán Luis", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "Brandan Cristian", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Coronel Carlos", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Diaz Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
+    {"id": "G5", "name": "GRUPO N° 1 de III° Año", "cadets": [{"n": 1, "nombre": "Juárez Ignacio", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Contreras Melani", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Bareiro Blanca", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Etchenique Shamira", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Abregú Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Aguirre Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Arias Ramiro", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Argañaraz Roberto", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Ávila José", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "Bazán Luis", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "Brandan Cristian", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Coronel Carlos", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Diaz Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
     {"id": "G6", "name": "GRUPO N° 2 de III° Año", "cadets": [{"n": 1, "nombre": "Carrillo Victoria", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Salas Murua", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Ocaranza Sofia", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Paz María", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Carrizo Cristian", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Chávez Máximo", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Del Lugo Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Del Lugo Guillermo", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Dib Jorge", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "Fernández Ariel", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "Frías Ariel", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Gerez Víctor", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Girvau Mauricio", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 14, "nombre": "Gómez Enrique", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
     {"id": "G7", "name": "GRUPO N° 3 de III° Año", "cadets": [{"n": 1, "nombre": "Alvarado Mauricio", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Valdez Federico", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Gómez Ramirez Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Guardia Cesar", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Iramain Guillermo", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Juárez Tomás", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Las Heras Cabocota Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Lazarte Cristian", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Luna Jorge", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "Medina Nicolás", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "Miro Gastón", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Nieva Juan", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Páez Fernández Manuel", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
     {"id": "G8", "name": "GRUPO N° 4 de III° Año", "cadets": [{"n": 1, "nombre": "Suárez Franco", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Alabarce Sergio", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Salas Josefina", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Quinteros Flabia", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Palomar Esteban", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Ramos Tobías", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Rodríguez Matías", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Rojas Leonel", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Ruiz Felipe", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "Ruiz Elio", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "Ruiz Fabricio", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Ruiz Lozano Emanuel", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Soria Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
@@ -75,10 +81,6 @@ DATOS_GRUPOS = [
 # --- PERSISTENCIA ---
 LOGO_FILE = "logo_iesp.png"
 
-def save_data():
-    # En la nube, los datos se guardan en el estado de la sesión
-    pass
-
 # --- INICIALIZACIÓN ---
 if 'initialized' not in st.session_state:
     st.session_state.groups = DATOS_GRUPOS
@@ -86,7 +88,9 @@ if 'initialized' not in st.session_state:
     st.session_state.overrides = {}
     st.session_state.role_overrides = {}
     st.session_state.statuses = {}
-    st.session_state.start_date = datetime(2026, 3, 15).date()
+    st.session_state.swaps = [] # Registro de Cambios Autorizados
+    # CAMBIO: Inicio del ciclo establecido a hoy 19/03/2026
+    st.session_state.start_date = datetime(2026, 3, 19).date()
     st.session_state.initialized = True
 
 def get_processed_guard_for_date(date):
@@ -99,11 +103,18 @@ def get_processed_guard_for_date(date):
     overrides = st.session_state.get('overrides', {})
     statuses = st.session_state.get('statuses', {})
     role_overrides = st.session_state.get('role_overrides', {})
+    swaps = st.session_state.get('swaps', [])
 
+    # 1. Obtener cadetes base (excluyendo los que hoy salieron por cambio autorizado)
     for i, c in enumerate(base_group['cadets']):
         cd = c.copy()
         titular_original = cd['nombre']
         
+        # Verificar si este cadete hoy debe estar en otro grupo
+        is_swapped_out = any(s for s in swaps if s['cadet_id'] == titular_original and s['date'] == date_key and s['orig_group'] == base_group['name'])
+        if is_swapped_out: continue
+
+        # Aplicar Reemplazo por Suplente
         if date_key in overrides and str(i) in overrides[date_key]:
             suplente = overrides[date_key][str(i)]
             cd['nombre'] = f"🔄 {suplente['nombre']}"
@@ -113,10 +124,20 @@ def get_processed_guard_for_date(date):
             cd['situacion'] = statuses.get(date_key, {}).get(str(i), "PRESENTE")
             cd['is_sub'] = False
             
+        # Aplicar Función Temporal
         if date_key in role_overrides and str(i) in role_overrides[date_key]:
             cd['funcion'] = role_overrides[date_key][str(i)]
             
         processed.append(cd)
+
+    # 2. Agregar cadetes que vienen de OTROS grupos por cambio autorizado
+    for s in swaps:
+        if s['date'] == date_key and s['target_group'] == base_group['name']:
+            cadet_swap = s['cadet_obj'].copy()
+            cadet_swap['nombre'] = f"⚡ {cadet_swap['nombre']}"
+            cadet_swap['situacion'] = f"CAMBIO AUTORIZADO (DE {s['orig_group']})"
+            processed.append(cadet_swap)
+            
     return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
 
 # --- LÓGICA PDF ---
@@ -139,8 +160,8 @@ def generate_official_pdf(start_date, end_date):
         for h, w in zip(headers, cols): pdf.cell(w, 10, h, 1, align='C', fill=True)
         pdf.ln()
         pdf.set_font("helvetica", '', 9)
-        for c in g_data['cadets']:
-            pdf.cell(cols[0], 8, str(c['n']), 1, align='C')
+        for i, c in enumerate(g_data['cadets']):
+            pdf.cell(cols[0], 8, str(i+1), 1, align='C')
             pdf.cell(cols[1], 8, c['nombre'][:35].encode('latin-1', 'replace').decode('latin-1'), 1, align='L')
             pdf.cell(cols[2], 8, c['curso'], 1, align='C')
             pdf.cell(cols[3], 8, c['funcion'].encode('latin-1', 'replace').decode('latin-1'), 1, align='C')
@@ -165,46 +186,41 @@ else:
     # --- MENÚ ---
     with st.sidebar:
         if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=100)
-        menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "📂 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
+        menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Cambios Autorizados", "📂 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
         if st.button("SALIR"): st.session_state.logged_in = False; st.rerun()
 
-    st.markdown("""<div class="header-container"><h1 class="header-title">I.E.S.P. Diagramación de Guardia 2026</h1></div>""", unsafe_allow_html=True)
+    st.markdown("""<div class="header-container"><h1 class="header-title">I.E.S.P. Gestión de Diagramación 2026</h1></div>""", unsafe_allow_html=True)
 
     if menu == "🏠 Dashboard":
-        if st.button("🔄 CORREGIR CICLO DE ROTACIÓN (SINCRONIZAR HOY)"):
-            st.session_state.start_date = datetime.now().date(); st.rerun()
-            
+        # ALERTA DE RESTAURACIÓN (CAMBIOS VENCIDOS)
+        today_key = str(datetime.now().date())
+        expired_swaps = [s for s in st.session_state.swaps if s['date'] < today_key]
+        if expired_swaps:
+            for ex in expired_swaps:
+                st.markdown(f"""<div class="alert-banner">⚠️ AVISO DE RESTAURACIÓN: El cambio de <b>{ex['cadet_id']}</b> del día {ex['date']} ya caducó. Por favor, elimine el registro en la sección 'Cambios Autorizados' para normalizar la nómina original de <b>{ex['orig_group']}</b>.</div>""", unsafe_allow_html=True)
+
         sel_date = st.date_input("FECHA SELECCIONADA", datetime.now().date()); date_key = str(sel_date)
         gi = get_processed_guard_for_date(sel_date)
         
         c1, c2, c3 = st.columns(3)
-        with c1: st.markdown(f"<div class='metric-card'><div class='metric-label'>Guardia</div><div class='metric-value'>{gi['name']}</div></div>", unsafe_allow_html=True)
-        with c2: st.markdown(f"<div class='metric-card'><div class='metric-label'>Suplentes</div><div class='metric-value'>{sum(1 for c in gi['cadets'] if c.get('is_sub'))}</div></div>", unsafe_allow_html=True)
-        with c3: st.markdown(f"<div class='metric-card'><div class='metric-label'>Novedades</div><div class='metric-value'>{sum(1 for c in gi['cadets'] if 'SUPLENTE' not in c['situacion'] and c['situacion'] != 'PRESENTE')}</div></div>", unsafe_allow_html=True)
+        with c1: st.markdown(f"<div class='metric-card'><div class='metric-label'>Guardia Hoy</div><div class='metric-value'>{gi['name']}</div></div>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<div class='metric-card'><div class='metric-label'>Suplencias</div><div class='metric-value'>{sum(1 for c in gi['cadets'] if c.get('is_sub'))}</div></div>", unsafe_allow_html=True)
+        with c3: st.markdown(f"<div class='metric-card'><div class='metric-label'>Novedades</div><div class='metric-value'>{sum(1 for c in gi['cadets'] if 'SUPLENTE' not in c['situacion'] and c['situacion'] != 'PRESENTE' and 'CAMBIO' not in c['situacion'])}</div></div>", unsafe_allow_html=True)
         
         col_l, col_r = st.columns([2, 1])
         with col_l:
             st.markdown("### 📋 Nómina del Personal")
-            df_display = pd.DataFrame([{"N°": c['n'], "Nombre": f"{'✅' if c['situacion'] == 'PRESENTE' or 'SUPLENTE' in c['situacion'] else '⚠️'} {c['nombre']}", "Función": c['funcion'], "Situación": c['situacion']} for c in gi['cadets']])
-            st.dataframe(df_display, use_container_width=True, hide_index=True, height=(len(df_display)+1)*35+10)
+            df_display = pd.DataFrame([{"N°": i+1, "Nombre": f"{'✅' if c['situacion'] == 'PRESENTE' or 'SUPLENTE' in c['situacion'] or 'CAMBIO' in c['situacion'] else '⚠️'} {c['nombre']}", "Función": c['funcion'], "Situación": c['situacion']} for i, c in enumerate(gi['cadets'])])
+            st.dataframe(df_display, use_container_width=True, hide_index=True)
         
         with col_r:
-            st.markdown("### ⚙️ Gestión")
             with st.container(border=True):
-                st.write("**📝 Situación**")
+                st.write("**📝 Situación de Revista**")
                 c_idx = st.selectbox("Personal", range(len(gi['cadets'])), format_func=lambda x: gi['cadets'][x]['nombre'])
                 nuevo_st = st.selectbox("Estado", ["PRESENTE", "FRANCO", "A.R.T.", "AUSENTE", "NOTA MÉDICA"])
-                if st.button("ACTUALIZAR ESTADO"):
+                if st.button("ACTUALIZAR"):
                     if date_key not in st.session_state.statuses: st.session_state.statuses[date_key] = {}
                     st.session_state.statuses[date_key][str(c_idx)] = nuevo_st; st.rerun()
-
-            with st.container(border=True):
-                st.write("**🎭 Cambiar Función**")
-                c_idx_r = st.selectbox("Cadete", range(len(gi['cadets'])), format_func=lambda x: gi['cadets'][x]['nombre'], key="rs")
-                n_f = st.text_input("Nueva Función")
-                if st.button("ASIGNAR"):
-                    if date_key not in st.session_state.role_overrides: st.session_state.role_overrides[date_key] = {}
-                    st.session_state.role_overrides[date_key][str(c_idx_r)] = n_f; st.rerun()
 
             with st.container(border=True):
                 st.write("**🔄 Reemplazo por Suplente**")
@@ -216,10 +232,6 @@ else:
                 if st.button("APLICAR SUPLENCIA"):
                     if date_key not in st.session_state.overrides: st.session_state.overrides[date_key] = {}
                     st.session_state.overrides[date_key][str(target)] = search_list[suplente_idx]['obj']; st.rerun()
-
-            if date_key in st.session_state.overrides or date_key in st.session_state.role_overrides:
-                if st.button("♻️ RESTABLECER ORIGINALES"):
-                    st.session_state.overrides[date_key] = {}; st.session_state.role_overrides[date_key] = {}; st.rerun()
 
     elif menu == "📋 Todas las Guardias":
         today = datetime.now().date()
@@ -235,22 +247,38 @@ else:
                     st.markdown(f"""<div style="display:flex; justify-content:space-between; padding:0.3rem 0; border-bottom:1px solid #f8fafc; font-size:0.7rem;"><b>{cadet['nombre']}</b><span style="color:#94a3b8;">{cadet.get('funcion','Cadete')}</span></div>""", unsafe_allow_html=True)
                 st.markdown("</div>", unsafe_allow_html=True)
 
-    elif menu == "⚖️ Guardia Castigo":
-        p_d = st.date_input("Fecha", datetime.now().date()); pk = str(p_d)
+    elif menu == "🔄 Cambios Autorizados":
+        st.markdown("### 🔄 Registro de Cambios de Guardia Temporales")
+        st.info("Registre aquí permisos especiales para que un cadete cumpla servicio con un grupo diferente en una fecha específica.")
+        
         ca, cb = st.columns(2)
         with ca:
             with st.container(border=True):
-                g_p = st.selectbox("Grupo Origen", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'])
-                c_p = st.selectbox("Cadete", range(len(st.session_state.groups[g_p]['cadets'])), format_func=lambda x: st.session_state.groups[g_p]['cadets'][x]['nombre'])
-                if st.button("AGREGAR A LISTA"):
-                    if pk not in st.session_state.punishments: st.session_state.punishments[pk] = []
-                    st.session_state.punishments[pk].append(st.session_state.groups[g_p]['cadets'][c_p]); st.rerun()
+                swap_date = st.date_input("Fecha de Servicio", datetime.now().date())
+                # Selector global de cadete
+                all_list = []
+                for g in st.session_state.groups:
+                    for c in g['cadets']: all_list.append({"label": f"{c['nombre']} (Orig: {g['name']})", "obj": c, "orig_name": g['name']})
+                
+                sel_c = st.selectbox("Seleccionar Cadete", range(len(all_list)), format_func=lambda x: all_list[x]['label'])
+                target_g = st.selectbox("Grupo de Destino (Donde cumplirá guardia)", [g['name'] for g in st.session_state.groups])
+                
+                if st.button("REGISTRAR CAMBIO AUTORIZADO"):
+                    st.session_state.swaps.append({
+                        "date": str(swap_date),
+                        "cadet_id": all_list[sel_c]['obj']['nombre'],
+                        "cadet_obj": all_list[sel_c]['obj'],
+                        "orig_group": all_list[sel_c]['orig_name'],
+                        "target_group": target_g
+                    })
+                    st.success("Cambio registrado correctamente."); st.rerun()
         with cb:
-            st.write(f"**Lista para el {p_d.strftime('%d/%m/%Y')}**")
-            for idx, p in enumerate(st.session_state.punishments.get(pk, [])):
-                c1, c2 = st.columns([3, 1]); c1.write(f"• {p['nombre']} ({p['curso']})")
-                if c2.button("🗑️", key=f"del_{idx}"):
-                    st.session_state.punishments[pk].pop(idx); st.rerun()
+            st.write("**Lista de Permisos de Cambio**")
+            for idx, s in enumerate(st.session_state.swaps):
+                c1, c2 = st.columns([3, 1])
+                c1.write(f"📅 {s['date']} | **{s['cadet_id']}** -> {s['target_group']}")
+                if c2.button("🗑️", key=f"sw_{idx}"):
+                    st.session_state.swaps.pop(idx); st.rerun()
 
     elif menu == "📂 Reportes PDF":
         s_rep = st.date_input("Inicio", datetime.now().date()); e_rep = st.date_input("Fin", datetime.now().date())
@@ -260,18 +288,8 @@ else:
                 st.download_button("⬇️ DESCARGAR", pdf_bytes, f"Planilla_{s_rep}.pdf", "application/pdf")
             except Exception as e: st.error(f"Error: {e}")
 
-    elif menu == "👥 Redistribución":
-        for i, g in enumerate(st.session_state.groups):
-            with st.expander(f"📝 Editar {g['name']}"):
-                df_editor = st.data_editor(pd.DataFrame(g['cadets']), num_rows="dynamic", key=f"ed_{i}", use_container_width=True)
-                if st.button(f"Guardar Cambios {g['id']}", key=f"s_{i}"):
-                    st.session_state.groups[i]['cadets'] = df_editor.to_dict('records'); st.success("Guardado")
-
     elif menu == "⚙️ Ajustes":
         st.markdown("### ⚙️ Configuración Operativa")
-        with st.container(border=True):
-            st.write("**📅 Sincronización de Ciclo**")
-            st.info("Ajuste la fecha en que el Grupo 1 inició su rotación para corregir el calendario.")
-            new_start = st.date_input("Fecha Inicio Ciclo (Grupo 1)", st.session_state.start_date)
-            if st.button("GUARDAR CONFIGURACIÓN"):
-                st.session_state.start_date = new_start; st.success("Sincronizado correctamente.")
+        new_start = st.date_input("Fecha Inicio Ciclo (Sincronizado a hoy 19/03)", st.session_state.start_date)
+        if st.button("GUARDAR CONFIGURACIÓN"):
+            st.session_state.start_date = new_start; st.success("Sincronizado correctamente.")
