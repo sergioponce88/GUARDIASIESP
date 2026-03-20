@@ -39,6 +39,10 @@ def inject_modern_css():
             width: 100% !important;
         }
         .metric-card {{ background: white; padding: 1.2rem; border-radius: 22px; border: 1px solid #f1f5f9; text-align: center; }}
+        .alert-banner {{
+            background: #fef2f2; border: 1px solid #fee2e2; padding: 1rem; border-radius: 20px;
+            color: #991b1b; font-weight: 700; margin-bottom: 1.5rem; border-left: 6px solid #ef4444;
+        }
         [data-testid="stDataFrame"] > div {{ border: none !important; }}
     </style>
     """, unsafe_allow_html=True)
@@ -58,7 +62,7 @@ BASE_URL = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases
 def load_from_cloud():
     if not BASE_URL: return None
     try:
-        resp = requests.get(f"{BASE_URL}/persistence/current_state", timeout=5)
+        resp = requests.get(f"{BASE_URL}/persistence/current_state", timeout=8)
         if resp.status_code == 200:
             raw = resp.json().get("fields", {}).get("json_data", {}).get("stringValue", "{}")
             return json.loads(raw)
@@ -80,10 +84,10 @@ def sync_to_cloud():
     }
     try:
         body = {"fields": {"json_data": {"stringValue": json.dumps(state)}}}
-        res = requests.patch(f"{BASE_URL}/persistence/current_state", json=body, timeout=5)
+        res = requests.patch(f"{BASE_URL}/persistence/current_state", json=body, timeout=8)
         if res.status_code == 200: st.toast("✅ Cambios guardados en la nube", icon="☁️")
-        else: st.error("❌ Error al sincronizar con el servidor")
-    except: st.error("❌ Sin conexión a internet")
+        else: st.error("❌ Error al sincronizar")
+    except: st.error("❌ Sin conexión")
 
 # --- NÓMINA INSTITUCIONAL ---
 DATOS_GRUPOS_BASE = [
@@ -126,9 +130,10 @@ def get_processed_guard_for_date(date):
     day_ov = st.session_state.overrides.get(date_key, {})
     day_st = st.session_state.statuses.get(date_key, {})
     day_ro = st.session_state.role_overrides.get(date_key, {})
+    swaps = st.session_state.swaps
 
     for i, c in enumerate(base_group['cadets']):
-        if any(s for s in st.session_state.swaps if s['cadet_id'] == c['nombre'] and s['date'] == date_key and s['orig_group'] == base_group['name']):
+        if any(s for s in swaps if s['cadet_id'] == c['nombre'] and s['date'] == date_key and s['orig_group'] == base_group['name']):
             continue
         cd = c.copy()
         titular = cd['nombre']
@@ -142,13 +147,13 @@ def get_processed_guard_for_date(date):
         if str(i) in day_ro: cd['funcion'] = day_ro[str(i)]
         processed.append(cd)
 
-    for s in st.session_state.swaps:
+    for s in swaps:
         if s['date'] == date_key and s['target_group'] == base_group['name']:
             c_swap = s['cadet_obj'].copy()
             c_swap['nombre'] = f"⚡ {c_swap['nombre']}"
             c_swap['situacion'] = f"CAMBIO AUTORIZADO (DE {s['orig_group']})"
             processed.append(c_swap)
-    return {"name": base_group['name'], "cadets": processed}
+    return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
 
 # --- LOGIN ---
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
@@ -166,8 +171,9 @@ else:
     with st.sidebar:
         if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=120)
         else: st.image(ESCUDO_OFICIAL, width=100)
+        st.markdown("<h3 style='color:white; text-align:center; font-size:0.8rem;'>DIAGRAMACIÓN PRO 2026</h3>", unsafe_allow_html=True)
         menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Cambios Autorizados", "📂 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
-        if st.button("DESCARGAR ÚLTIMA NUBE"):
+        if st.button("🔄 DESCARGAR ÚLTIMA NUBE"):
             data = load_from_cloud()
             if data: st.session_state.update(data); st.rerun()
         if st.button("CERRAR SESIÓN"): st.session_state.logged_in = False; st.rerun()
@@ -175,6 +181,11 @@ else:
     st.markdown(f"""<div class="header-container"><img src="{ESCUDO_OFICIAL}" width="50"><h1 class="header-title">I.E.S.P. Diagramación de Guardia Sincronizada</h1></div>""", unsafe_allow_html=True)
 
     if menu == "🏠 Dashboard":
+        today_key = str(datetime.now().date())
+        expired = [s for s in st.session_state.swaps if s['date'] < today_key]
+        for ex in expired:
+            st.markdown(f"<div class='alert-banner'>⚠️ RESTAURACIÓN: El cambio de <b>{ex['cadet_id']}</b> caducó. Eliminar de 'Cambios Autorizados'.</div>", unsafe_allow_html=True)
+
         sel_date = st.date_input("FECHA", datetime.now().date()); date_key = str(sel_date)
         gi = get_processed_guard_for_date(sel_date)
         
@@ -190,7 +201,7 @@ else:
         with col1:
             with st.container(border=True):
                 st.write("**📝 Asistencia**")
-                c_idx = st.selectbox("Cadete", range(len(gi['cadets'])), format_func=lambda x: gi['cadets'][x]['nombre'])
+                c_idx = st.selectbox("Personal", range(len(gi['cadets'])), format_func=lambda x: gi['cadets'][x]['nombre'])
                 nuevo_st = st.selectbox("Estado", ["PRESENTE", "FRANCO", "A.R.T.", "AUSENTE", "NOTA MÉDICA"])
                 if st.button("GUARDAR ESTADO"):
                     if date_key not in st.session_state.statuses: st.session_state.statuses[date_key] = {}
@@ -205,15 +216,15 @@ else:
                     st.session_state.role_overrides[date_key][str(c_idx_f)] = n_f; sync_to_cloud(); st.rerun()
         with col3:
             with st.container(border=True):
-                st.write("**🔄 Reemplazo**")
+                st.write("**🔄 Suplencia**")
                 target = st.selectbox("Titular", range(len(gi['cadets'])), format_func=lambda x: gi['cadets'][x]['nombre'], key="t")
                 all_c = []
                 for g in st.session_state.groups:
                     for c in g['cadets']: all_c.append({"label": f"{c['nombre']} ({g['name']})", "obj": c})
-                suplente = st.selectbox("Buscar Suplente", range(len(all_c)), format_func=lambda x: all_c[x]['label'])
+                suplente_idx = st.selectbox("Buscar Suplente", range(len(all_c)), format_func=lambda x: all_c[x]['label'])
                 if st.button("APLICAR SUPLENTE"):
                     if date_key not in st.session_state.overrides: st.session_state.overrides[date_key] = {}
-                    st.session_state.overrides[date_key][str(target)] = all_list[suplente]['obj']; sync_to_cloud(); st.rerun()
+                    st.session_state.overrides[date_key][str(target)] = all_c[suplente_idx]['obj']; sync_to_cloud(); st.rerun()
 
     elif menu == "📋 Todas las Guardias":
         cols = st.columns(3)
@@ -250,7 +261,7 @@ else:
                     for c in g['cadets']: all_list.append({"label": f"{c['nombre']} ({g['name']})", "obj": c, "oname": g['name']})
                 sel_c = st.selectbox("Cadete", range(len(all_list)), format_func=lambda x: all_list[x]['label'])
                 target_g = st.selectbox("Destino", [g['name'] for g in st.session_state.groups])
-                if st.button("REGISTRAR"):
+                if st.button("REGISTRAR CAMBIO"):
                     st.session_state.swaps.append({"date": str(swap_date), "cadet_id": all_list[sel_c]['obj']['nombre'], "cadet_obj": all_list[sel_c]['obj'], "orig_group": all_list[sel_c]['oname'], "target_group": target_g})
                     sync_to_cloud(); st.rerun()
         with cb:
