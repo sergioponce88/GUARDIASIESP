@@ -61,7 +61,6 @@ inject_modern_css()
 def get_cloud_params():
     try:
         conf = json.loads(st.secrets["__firebase_config"])
-        # Forzamos la ruta exacta del proyecto configurado
         project_id = conf.get("projectId")
         api_key = conf.get("apiKey")
         app_id = "iesp-v2026-final-oficial"
@@ -69,15 +68,14 @@ def get_cloud_params():
     except: return None, None, None
 
 PROJECT_ID, APP_ID, API_KEY = get_cloud_params()
-# Nueva URL simplificada para evitar errores de ruta en Firestore REST
-URL_DOC = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/artifacts/{APP_ID}/public/data/sistema/estado?key={API_KEY}"
+URL_DOC = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/artifacts/{APP_ID}/public/data/sistema/estado?key={API_KEY}" if PROJECT_ID else ""
 
 def load_from_cloud():
-    if not PROJECT_ID or not API_KEY: return None
+    if not URL_DOC: return None
     try:
-        # Forzar descarga ignorando caché con milisegundos
+        # Forzar descarga ignorando caché con milisegundos exactos
         timestamp = str(int(time.time() * 1000))
-        headers = {"Cache-Control": "no-cache", "Pragma": "no-cache"}
+        headers = {"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"}
         resp = requests.get(f"{URL_DOC}&refresh={timestamp}", headers=headers, timeout=10)
         if resp.status_code == 200:
             doc_data = resp.json().get("fields", {})
@@ -87,8 +85,7 @@ def load_from_cloud():
     return None
 
 def sync_to_cloud():
-    if not PROJECT_ID or not API_KEY: return
-    # Generar sello de tiempo de Tucumán
+    if not URL_DOC: return
     st.session_state.data_timestamp = get_now_tucuman().strftime("%H:%M:%S")
     payload = {
         "groups": st.session_state.groups,
@@ -101,7 +98,6 @@ def sync_to_cloud():
         "data_timestamp": st.session_state.data_timestamp
     }
     try:
-        # Usamos PATCH con updateMask para asegurar que se cree o se pise el documento
         body = {"fields": {"json_data": {"stringValue": json.dumps(payload)}}}
         res = requests.patch(f"{URL_DOC}&updateMask.fieldPaths=json_data", json=body, timeout=10)
         if res.status_code == 200:
@@ -125,10 +121,10 @@ DATOS_GRUPOS_BASE = [
     {"id": "G9", "name": "GRUPO N° 5 de III° Año", "cadets": [{"n": 1, "nombre": "Aybar Eduardo", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}] + [{"n": i+2, "nombre": f"Cadete G9-{i+1}", "curso": "IIIº Año", "funcion": "Cadete Apostado"} for i in range(12)]}
 ]
 
-# --- INICIALIZACIÓN DE SESIÓN ---
+# --- INICIALIZACIÓN DE SESIÓN (PROTECCIÓN CONTRA ATTRIBUTEERROR) ---
 if 'initialized' not in st.session_state:
     st.session_state.data_timestamp = "00:00:00"
-    st.session_state.last_sync_status = "Esperando..."
+    st.session_state.last_sync_status = "Iniciando..."
     st.session_state.groups = DATOS_GRUPOS_BASE
     st.session_state.statuses = {}
     st.session_state.overrides = {}
@@ -137,12 +133,14 @@ if 'initialized' not in st.session_state:
     st.session_state.punishments = {}
     st.session_state.start_date = datetime(2026, 3, 19).date()
     
-    # Carga inicial agresiva
+    # Carga inicial agresiva para PC y celular
     data = load_from_cloud()
     if data:
         st.session_state.update(data)
         if "start_date" in data:
             st.session_state.start_date = datetime.strptime(data.get("start_date"), "%Y-%m-%d").date()
+        st.session_state.last_sync_status = f"✅ Cargado {get_now_tucuman().strftime('%H:%M:%S')}"
+    
     st.session_state.initialized = True
 
 def get_processed_guard_for_date(date):
@@ -228,8 +226,8 @@ else:
     with st.sidebar:
         st.image(get_logo_path(), width=100)
         st.markdown(f"### 🛡️ MANDO DE GUARDIA")
-        st.info(f"🕒 **Sello en Nube:**\n`{st.session_state.get('data_timestamp')}`")
-        st.success(f"☁️ **Estado Sincronía:**\n`{st.session_state.last_sync_status}`")
+        st.info(f"🕒 **Sello en Nube:**\n`{st.session_state.get('data_timestamp', '00:00:00')}`")
+        st.success(f"☁️ **Estado Sincronía:**\n`{st.session_state.get('last_sync_status', 'Esperando...')}`")
         st.divider()
         menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Intercambio", "📂 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
         st.divider()
@@ -248,11 +246,6 @@ else:
                     st.session_state.last_sync_status = f"✅ Actualizado {get_now_tucuman().strftime('%H:%M:%S')}"
                     st.rerun()
         
-        with st.expander("🔍 LOGS DE CONEXIÓN"):
-            st.caption(f"App ID: {APP_ID}")
-            st.caption(f"Project: {PROJECT_ID}")
-            st.caption(f"API Key: {'Configurada' if API_KEY else 'Faltante'}")
-            
         if st.button("🚪 SALIR"): st.session_state.logged_in = False; st.rerun()
 
     # Cabecera
@@ -265,7 +258,7 @@ else:
         gi = get_processed_guard_for_date(sel_date)
         m1, m2, m3 = st.columns(3)
         with m1: st.markdown(f"<div class='metric-card'><p>Guardia Hoy</p><h3>{gi['name']}</h3></div>", unsafe_allow_html=True)
-        with m2: st.markdown(f"<div class='metric-card'><p>Sello Nube</p><h3>{st.session_state.data_timestamp}</h3></div>", unsafe_allow_html=True)
+        with m2: st.markdown(f"<div class='metric-card'><p>Sello Nube</p><h3>{st.session_state.get('data_timestamp')}</h3></div>", unsafe_allow_html=True)
         with m3: st.markdown(f"<div class='metric-card'><p>Novedades</p><h3>{sum(1 for c in gi['cadets'] if 'PRESENTE' not in c['situacion'])}</h3></div>", unsafe_allow_html=True)
         
         st.dataframe(pd.DataFrame([{"N°": i+1, "Nombre": f"{'✅' if 'PRESENTE' in c['situacion'] else '⚠️'} {c['nombre']}", "Función": c['funcion'], "Situación": c['situacion']} for i, c in enumerate(gi['cadets'])]), use_container_width=True, hide_index=True, height=500)
@@ -308,6 +301,7 @@ else:
                     sync_to_cloud(); st.rerun()
 
     elif menu == "📋 Todas las Guardias":
+        st.markdown("### 📋 Nóminas Completas por Grupo")
         gi_today = get_processed_guard_for_date(get_now_tucuman().date())
         cols = st.columns(3)
         for i, g in enumerate(st.session_state.groups):
@@ -318,14 +312,24 @@ else:
                     st.dataframe(pd.DataFrame(g['cadets'])[["nombre", "curso", "funcion"]], hide_index=True, use_container_width=True)
 
     elif menu == "⚖️ Guardia Castigo":
-        pk_cast = str(st.date_input("Fecha Castigo", get_now_tucuman().date()))
-        g_idx = st.selectbox("Grupo", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'])
-        c_idx = st.selectbox("Cadete", range(len(st.session_state.groups[g_idx]['cadets'])), format_func=lambda x: st.session_state.groups[g_idx]['cadets'][x]['nombre'])
-        if st.button("AGREGAR AL REFUERZO"):
-            if pk_cast not in st.session_state.punishments: st.session_state.punishments[pk_cast] = []
-            st.session_state.punishments[pk_cast].append(st.session_state.groups[g_idx]['cadets'][c_idx]); sync_to_cloud(); st.rerun()
+        pk_cast = str(st.date_input("Fecha Castigo", get_now_tucuman().date(), key="cast_d"))
+        ca, cb = st.columns(2)
+        with ca:
+            with st.container(border=True):
+                g_idx = st.selectbox("Grupo Origen", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'])
+                c_idx = st.selectbox("Cadete", range(len(st.session_state.groups[g_idx]['cadets'])), format_func=lambda x: st.session_state.groups[g_idx]['cadets'][x]['nombre'])
+                if st.button("AGREGAR AL REFUERZO"):
+                    if pk_cast not in st.session_state.punishments: st.session_state.punishments[pk_cast] = []
+                    st.session_state.punishments[pk_cast].append(st.session_state.groups[g_idx]['cadets'][c_idx]); sync_to_cloud(); st.rerun()
+        with cb:
+            st.write(f"**Refuerzos para {pk_cast}**")
+            if pk_cast in st.session_state.punishments:
+                for idx_p, p_item in enumerate(st.session_state.punishments[pk_cast]):
+                    c1, c2 = st.columns([4, 1]); c1.write(f"• {p_item['nombre']}"); 
+                    if c2.button("🗑️", key=f"del_p_{idx_p}"): st.session_state.punishments[pk_cast].pop(idx_p); sync_to_cloud(); st.rerun()
 
     elif menu == "🔄 Intercambio":
+        st.markdown("### 🔄 Terminal de Intercambio Bidireccional")
         sw_date = st.date_input("Fecha Servicio", get_now_tucuman().date())
         col_a, col_b = st.columns(2)
         with col_a:
@@ -334,7 +338,7 @@ else:
         with col_b:
             g_b = st.selectbox("Grupo B", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'], key="gb")
             c_b = st.selectbox("Cadete B", range(len(st.session_state.groups[g_b]['cadets'])), format_func=lambda x: st.session_state.groups[g_b]['cadets'][x]['nombre'], key="cb")
-        if st.button("INTERCAMBIAR"):
+        if st.button("EJECUTAR INTERCAMBIO"):
             cad_a, cad_b = st.session_state.groups[g_a]['cadets'][c_a], st.session_state.groups[g_b]['cadets'][c_b]
             st.session_state.swaps.append({"date": str(sw_date), "cadet_id": cad_a['nombre'], "cadet_obj": cad_a, "orig_group": st.session_state.groups[g_a]['name'], "target_group": st.session_state.groups[g_b]['name']})
             st.session_state.swaps.append({"date": str(sw_date), "cadet_id": cad_b['nombre'], "cadet_obj": cad_b, "orig_group": st.session_state.groups[g_b]['name'], "target_group": st.session_state.groups[g_a]['name']})
@@ -351,7 +355,7 @@ else:
         for i_red, g_red in enumerate(st.session_state.groups):
             with st.expander(f"Editar {g_red['name']}"):
                 df_res = st.data_editor(pd.DataFrame(g_red['cadets']), num_rows="dynamic", key=f"ed_{i_red}", use_container_width=True)
-                if st.button(f"Guardar {g_red['id']}", key=f"bs_{i_red}"):
+                if st.button(f"Guardar Cambios en {g_red['id']}", key=f"bs_{i_red}"):
                     st.session_state.groups[i_red]['cadets'] = df_res.to_dict('records'); sync_to_cloud(); st.rerun()
 
     elif menu == "⚙️ Ajustes":
