@@ -21,7 +21,7 @@ st.set_page_config(
 def get_now_tucuman():
     return datetime.now() - timedelta(hours=3)
 
-# --- CONSTANTES INSTITUCIONALES ---
+# URL del escudo mantenida solo para el generador de PDF (en bloque try/except)
 ESCUDO_URL = "https://upload.wikimedia.org/wikipedia/commons/c/c5/Escudo_de_la_Polic%C3%ADa_de_Tucum%C3%A1n.png"
 
 # --- DISEÑO UI PREMIUM (CSS) ---
@@ -272,12 +272,10 @@ if 'initialized' not in st.session_state:
     
     data = load_cloud_data()
     if data:
-        # VALIDACIÓN DE INTEGRIDAD: Si los datos de la nube tienen menos cadetes que el Word, ignorarlos.
         cloud_groups = data.get("groups", [])
         if len(cloud_groups) > 0 and len(cloud_groups[0].get("cadets", [])) < 10:
-            st.warning("⚠️ Nómina antigua detectada en nube. Restaurando lista del Word...")
+            st.warning("⚠️ Nómina antigua detectada. Cargando lista del Word...")
             st.session_state.groups = get_official_groups()
-            save_cloud_data()
         else:
             for k, v in data.items():
                 if k == "start_date": st.session_state[k] = datetime.strptime(v, "%Y-%m-%d").date()
@@ -331,7 +329,7 @@ def get_processed_guard_for_date(date):
 if not st.session_state.get('logged_in', False):
     _, col_log, _ = st.columns([1, 1.4, 1])
     with col_log:
-        st.markdown("<div style='text-align:center; font-size:60px;'>🛡️</div>", unsafe_allow_html=True)
+        st.markdown("<div style='text-align:center; font-size:80px;'>🛡️</div>", unsafe_allow_html=True)
         st.markdown("<h2 style='text-align:center; color:#0f172a;'>MANDO IESP</h2>", unsafe_allow_html=True)
         pwd = st.text_input("CLAVE", type="password")
         if st.button("INGRESAR"):
@@ -344,8 +342,8 @@ else:
             all_cadets_registry.append({"nombre": c['nombre'], "grupo": g['name'], "curso": c['curso'], "obj": c})
 
     with st.sidebar:
-        try: st.image(ESCUDO_URL, width=120)
-        except: st.markdown("<div class='logo-box'>POLICÍA DE TUCUMÁN</div>", unsafe_allow_html=True)
+        # Reemplazo visual de logo por caja institucional (ya que el logo falla)
+        st.markdown("<div class='logo-box'>CONTROL DE GUARDIA<br><span style='font-size:0.7rem; font-weight:400;'>I.E.S.P. TUCUMÁN</span></div>", unsafe_allow_html=True)
         
         st.info(f"🕒 **Sello Nube:**\n`{st.session_state.get('data_timestamp', '00:00:00')}`")
         st.success(f"☁️ **Estado:**\n`{st.session_state.get('last_sync_status', 'Conectado')}`")
@@ -362,15 +360,6 @@ else:
                     else: st.session_state[k] = v
                 st.session_state.last_sync_status = f"✅ Sinc: {get_now_tucuman().strftime('%H:%M:%S')}"
                 st.rerun()
-        
-        st.divider()
-        st.error("ZONA DE RECUPERACIÓN")
-        if st.button("⚠️ RESTABLECER LISTA WORD"):
-            st.session_state.groups = get_official_groups()
-            save_cloud_data()
-            st.success("Nómina cargada. Presione Subir Cambios.")
-            st.rerun()
-            
         if st.button("🚪 SALIR"): st.session_state.logged_in = False; st.rerun()
 
     st.markdown(f"<h1 style='color:#0f172a; font-weight:800; margin-top:10px;'>Mando Operativo IESP <span style='color:#ef4444'>PRO</span></h1>", unsafe_allow_html=True)
@@ -436,6 +425,15 @@ else:
 
     elif menu == "📋 Todas las Guardias":
         st.markdown("### 📋 Nóminas Permanentes (Word Oficial)")
+        
+        # Botón de Restablecer reubicado aquí para mayor comodidad
+        if st.button("⚠️ RESTABLECER TODA LA NÓMINA OFICIAL (WORD)", type="secondary", use_container_width=True):
+            st.session_state.groups = get_official_groups()
+            save_cloud_data()
+            st.success("Lista oficial del Word cargada con éxito.")
+            st.rerun()
+            
+        st.divider()
         cols = st.columns(3)
         for i, g in enumerate(st.session_state.groups):
             with cols[i % 3]:
@@ -443,7 +441,6 @@ else:
                     st.table(pd.DataFrame(g['cadets'])[["nombre", "curso", "funcion"]])
 
     elif menu == "⚖️ Guardia Castigo":
-        st.markdown("### ⚖️ Gestión de Sancionados")
         pk_cast = str(st.date_input("Fecha Cumplimiento", get_now_tucuman().date()))
         c1, c2 = st.columns(2)
         with c1:
@@ -461,7 +458,6 @@ else:
                     st.write(f"❌ {p['nombre']} ({p['curso']})")
 
     elif menu == "🔄 Intercambio":
-        st.markdown("### 🔄 Terminal de Traspaso")
         d_sw = st.date_input("Fecha Servicio", get_now_tucuman().date())
         ga_idx = st.selectbox("Grupo A", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'], key="ga")
         ca_idx = st.selectbox("Cadete de A", range(len(st.session_state.groups[ga_idx]['cadets'])), format_func=lambda x: st.session_state.groups[ga_idx]['cadets'][x]['nombre'], key="ca")
