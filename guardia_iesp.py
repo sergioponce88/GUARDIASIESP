@@ -119,7 +119,7 @@ def save_cloud_data():
     except: pass
     return False
 
-# --- NÓMINA OFICIAL TOTAL (EXTRAÍDA DEL DOCX) ---
+# --- NÓMINA OFICIAL TOTAL ---
 def get_official_groups():
     return [
         {"id": "G1", "name": "GRUPO N° 1 de II° Año", "cadets": [
@@ -320,6 +320,7 @@ def get_processed_guard_for_date(date):
             
     for p in punishments:
         cad_p = p.copy()
+        # Se prioriza la función seleccionada en el módulo de castigo
         cad_p['nombre'] = f"⚖️ {cad_p['nombre']}"; cad_p['situacion'] = "GUARDIA CASTIGO"; processed.append(cad_p)
 
     for e in extras:
@@ -328,13 +329,12 @@ def get_processed_guard_for_date(date):
             
     return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
 
-# --- GENERADOR DE PDF (CORREGIDO Y OPTIMIZADO) ---
+# --- GENERADOR DE PDF ---
 def generate_pdf(start_date, end_date):
     pdf = FPDF()
     curr = start_date
     while curr <= end_date:
         pdf.add_page()
-        # Encabezado Institucional
         pdf.set_font("Helvetica", 'B', 14)
         pdf.cell(190, 10, "INSTITUTO DE ENSEÑANZA SUPERIOR DE POLICIA", 0, 1, 'C')
         pdf.set_font("Helvetica", '', 10)
@@ -345,7 +345,6 @@ def generate_pdf(start_date, end_date):
         pdf.set_font("Helvetica", 'B', 12)
         pdf.cell(190, 10, f"SERVICIO EN TURNO: {g_data['name']}", 0, 1, 'L')
         
-        # Tabla de Nómina
         pdf.set_fill_color(230, 230, 230)
         pdf.set_font("Helvetica", 'B', 9)
         pdf.cell(10, 8, "N", 1, 0, 'C', True)
@@ -357,7 +356,6 @@ def generate_pdf(start_date, end_date):
         pdf.set_font("Helvetica", '', 8)
         for i, c in enumerate(g_data['cadets']):
             pdf.cell(10, 7, str(i+1), 1, 0, 'C')
-            # Sanitización de caracteres para evitar crash en PDF
             nombre_safe = c['nombre'].encode('latin-1', 'replace').decode('latin-1')
             pdf.cell(85, 7, nombre_safe, 1, 0, 'L')
             funcion_safe = c['funcion'].encode('latin-1', 'replace').decode('latin-1')
@@ -367,8 +365,6 @@ def generate_pdf(start_date, end_date):
             pdf.cell(30, 7, "", 1, 1)
         
         curr += timedelta(days=1)
-    
-    # IMPORTANTE: Devolver bytes puros para Streamlit
     return bytes(pdf.output())
 
 # --- INTERFAZ ---
@@ -405,7 +401,7 @@ else:
                 st.rerun()
         if st.button("🚪 SALIR"): st.session_state.logged_in = False; st.rerun()
 
-    st.markdown(f"<h1 style='color:#0f172a; font-weight:800; margin-top:10px;'>Mando Operativo IESP <span style='color:#ef4444'>PRO</span></h1>", unsafe_allow_html=True)
+    st.markdown(f"<h1 style='color:#0f172a; font-weight:800; margin-top:10px;'>Diagramación IESP <span style='color:#ef4444'>PRO</span></h1>", unsafe_allow_html=True)
 
     if menu == "🏠 Dashboard":
         sel_date = st.date_input("FECHA SELECCIONADA", get_now_tucuman().date(), key="dash_date")
@@ -494,20 +490,24 @@ else:
                     st.table(pd.DataFrame(g['cadets'])[["nombre", "curso", "funcion"]])
 
     elif menu == "⚖️ Guardia Castigo":
+        st.markdown("### ⚖️ Gestión de Sancionados (Refuerzo Castigo)")
         pk_cast = str(st.date_input("Fecha Cumplimiento", get_now_tucuman().date()))
         c1, c2 = st.columns(2)
         with c1:
             with st.container(border=True):
                 idx_p = st.selectbox("Sancionado", range(len(all_cadets_registry)), format_func=lambda x: f"{all_cadets_registry[x]['nombre']} ({all_cadets_registry[x]['grupo']})")
+                role_p = st.selectbox("Función en Castigo", ["Cadete Apostado", "Jefe de Guardia", "Cabo de Cuarto"])
                 if st.button("AGREGAR CASTIGO"):
                     if pk_cast not in st.session_state.punishments: st.session_state.punishments[pk_cast] = []
-                    st.session_state.punishments[pk_cast].append(all_cadets_registry[idx_p]['obj'])
+                    new_p = all_cadets_registry[idx_p]['obj'].copy()
+                    new_p['funcion'] = role_p # Se asigna la función seleccionada
+                    st.session_state.punishments[pk_cast].append(new_p)
                     save_cloud_data(); st.rerun()
         with c2:
             st.write(f"**Personal en Castigo para {pk_cast}:**")
             if pk_cast in st.session_state.punishments:
                 for p in st.session_state.punishments[pk_cast]: 
-                    st.write(f"❌ {p['nombre']} ({p['curso']})")
+                    st.write(f"❌ {p['nombre']} - **{p['funcion']}**")
 
     elif menu == "🔄 Intercambio":
         d_sw = st.date_input("Fecha Servicio", get_now_tucuman().date())
@@ -521,13 +521,10 @@ else:
 
     elif menu == "📊 Reportes PDF":
         st.markdown("### 📊 Generador de Diagramaciones Oficiales")
-        st.write("Seleccione el rango de fechas. El sistema generará el PDF y habilitará el botón de descarga automática.")
         col1, col2 = st.columns(2)
         s_rep = col1.date_input("Desde", get_now_tucuman().date())
         e_rep = col2.date_input("Hasta", get_now_tucuman().date())
         
-        # MOTOR SENIOR: Generación directa en el botón de descarga
-        # Esto evita el error de anidamiento y el crash de tipo de datos
         pdf_data = generate_pdf(s_rep, e_rep)
         
         st.download_button(
@@ -537,7 +534,6 @@ else:
             mime="application/pdf",
             use_container_width=True
         )
-        st.info("Nota: El reporte incluye todas las novedades actuales de la nube.")
 
     elif menu == "👥 Redistribución":
         for i, g in enumerate(st.session_state.groups):
