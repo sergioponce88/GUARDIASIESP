@@ -65,7 +65,7 @@ inject_modern_css()
 def get_cloud_params():
     try:
         conf = json.loads(st.secrets["__firebase_config"])
-        return conf.get("projectId"), st.secrets.get("__app_id", "iesp-v2026-v4")
+        return conf.get("projectId"), st.secrets.get("__app_id", "iesp-v2026-final-oficial")
     except: return None, None
 
 PROJECT_ID, APP_ID = get_cloud_params()
@@ -74,9 +74,11 @@ BASE_URL = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases
 def load_from_cloud():
     if not BASE_URL: return None
     try:
-        resp = requests.get(f"{BASE_URL}/persistence/current_state", timeout=10)
+        # Añadimos nocache para forzar la descarga de los datos reales de la nube
+        resp = requests.get(f"{BASE_URL}/persistence/current_state?nocache={time.time()}", timeout=10)
         if resp.status_code == 200:
-            return json.loads(resp.json().get("fields", {}).get("json_data", {}).get("stringValue", "{}"))
+            data = resp.json().get("fields", {})
+            return json.loads(data.get("json_data", {}).get("stringValue", "{}"))
     except: pass
     return None
 
@@ -92,26 +94,26 @@ def sync_to_cloud():
         "role_overrides": st.session_state.role_overrides,
         "punishments": st.session_state.punishments,
         "start_date": str(st.session_state.start_date),
-        "last_sync_ts": time.time() # Sello de tiempo para forzar actualización
+        "last_sync_ts": time.time()
     }
     try:
         body = {"fields": {"json_data": {"stringValue": json.dumps(state)}}}
         requests.patch(f"{BASE_URL}/persistence/current_state", json=body, timeout=10)
         st.session_state.last_sync = datetime.now().strftime("%H:%M:%S")
-        st.toast("✅ Nube Sincronizada", icon="☁️")
-    except: st.error("❌ Fallo de conexión")
+        st.toast("✅ Nube Actualizada", icon="☁️")
+    except: st.error("❌ Falló la conexión")
 
-# --- NÓMINA INSTITUCIONAL REAL (138 CADETES) ---
+# --- NÓMINA INSTITUCIONAL COMPLETA (9 GRUPOS) ---
 DATOS_GRUPOS_BASE = [
     {"id": "G1", "name": "GRUPO N° 1 de II° Año", "cadets": [{"n": 1, "nombre": "Forales Emanuel", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Oliva Samuel", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Abregú Francisco", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Acosta Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Agüero Alexis", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Albarracín Federico", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Albornoz Lautaro", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Aranda Héctor", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Bazán Hernán", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "Brizuela Miguel", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "Bustamante Marcelo", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Cantos Núñez Javier", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Castro Miguel", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 14, "nombre": "Cequeira Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
     {"id": "G2", "name": "GRUPO N° 2 de II° Año", "cadets": [{"n": 1, "nombre": "Mercado Marcelo", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Galván Maira", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Ibarra Martina", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Issa Tiara", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Medina Emilse", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Coronel Luis", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Cruz Braian", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Fernández Adrián", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Figueroa Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "González Ignacio", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "González Salomón Gonzalo", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Guevara Marcos", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Ibáñez Lucas", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 14, "nombre": "Jaime Christian", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
-    {"id": "G3", "name": "GRUPO N° 3 de II° Año", "cadets": [{"n": i+1, "nombre": f"Cadete G3-{i+1}", "curso": "IIº Año", "funcion": "Cadete Apostado"} for i in range(13)]},
-    {"id": "G4", "name": "GRUPO N° 4 de II° Año", "cadets": [{"n": i+1, "nombre": f"Cadete G4-{i+1}", "curso": "IIº Año", "funcion": "Cadete Apostado"} for i in range(15)]},
-    {"id": "G5", "name": "GRUPO N° 1 de III° Año", "cadets": [{"n": 1, "nombre": "Juarez Ignacio", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Contreras Melani", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Bareiro Blanca", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Etchenique Shamira", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Abregu Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Aguirre Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Arias Ramiro", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Arganaraz Roberto", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 9, "nombre": "Avila Jose", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 10, "nombre": "Bazan Luis", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 11, "nombre": "Brandan Cristian", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 12, "nombre": "Coronel Carlos", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 13, "nombre": "Diaz Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
-    {"id": "G6", "name": "GRUPO N° 2 de III° Año", "cadets": [{"n": i+1, "nombre": f"Cadete G6-{i+1}", "curso": "IIIº Año", "funcion": "Cadete Apostado"} for i in range(14)]},
-    {"id": "G7", "name": "GRUPO N° 3 de III° Año", "cadets": [{"n": i+1, "nombre": f"Cadete G7-{i+1}", "curso": "IIIº Año", "funcion": "Cadete Apostado"} for i in range(13)]},
-    {"id": "G8", "name": "GRUPO N° 4 de III° Año", "cadets": [{"n": i+1, "nombre": f"Cadete G8-{i+1}", "curso": "IIIº Año", "funcion": "Cadete Apostado"} for i in range(13)]},
-    {"id": "G9", "name": "GRUPO N° 5 de III° Año", "cadets": [{"n": i+1, "nombre": f"Cadete G9-{i+1}", "curso": "IIIº Año", "funcion": "Cadete Apostado"} for i in range(13)]}
+    {"id": "G3", "name": "GRUPO N° 3 de II° Año", "cadets": [{"n": 1, "nombre": "Argañaraz Patricio", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Centeno Luis", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Jiménez Gonzalo", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Juárez Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Lagarde Christian", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
+    {"id": "G4", "name": "GRUPO N° 4 de II° Año", "cadets": [{"n": 1, "nombre": "Gramajo Andrea", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Pintos Patricio", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}]},
+    {"id": "G5", "name": "GRUPO N° 1 de III° Año", "cadets": [{"n": 1, "nombre": "Juarez Ignacio", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}, {"n": 2, "nombre": "Contreras Melani", "curso": "IIIº Año", "funcion": "Cabo de Cuarto"}, {"n": 3, "nombre": "Bareiro Blanca", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 4, "nombre": "Etchenique Shamira", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 5, "nombre": "Abregu Franco", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 6, "nombre": "Aguirre Santiago", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 7, "nombre": "Arias Ramiro", "curso": "IIº Año", "funcion": "Cadete Apostado"}, {"n": 8, "nombre": "Arganaraz Roberto", "curso": "IIº Año", "funcion": "Cadete Apostado"}]},
+    {"id": "G6", "name": "GRUPO N° 2 de III° Año", "cadets": [{"n": 1, "nombre": "Carrillo Victoria", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}]},
+    {"id": "G7", "name": "GRUPO N° 3 de III° Año", "cadets": [{"n": 1, "nombre": "Alvarado Mauricio", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}]},
+    {"id": "G8", "name": "GRUPO N° 4 de III° Año", "cadets": [{"n": 1, "nombre": "Suarez Franco", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}]},
+    {"id": "G9", "name": "GRUPO N° 5 de III° Año", "cadets": [{"n": 1, "nombre": "Aybar Eduardo", "curso": "IIIº Año", "funcion": "Jefe de Guardia"}]}
 ]
 
 # --- INICIALIZACIÓN ---
@@ -121,8 +123,8 @@ if 'initialized' not in st.session_state:
         st.session_state.update(cloud)
     else:
         st.session_state.groups = DATOS_GRUPOS_BASE
-        st.session_state.overrides, st.session_state.statuses = {}, {}
-        st.session_state.role_overrides, st.session_state.punishments = {}, {}
+        st.session_state.punishments, st.session_state.overrides = {}, {}
+        st.session_state.role_overrides, st.session_state.statuses = {}, {}
         st.session_state.swaps = []
         st.session_state.start_date = datetime(2026, 3, 19).date()
     st.session_state.last_sync = datetime.now().strftime("%H:%M:%S")
@@ -143,31 +145,25 @@ def get_processed_guard_for_date(date):
     # Procesar Miembros Originales (por nombre exacto)
     for c in base_group['cadets']:
         c_name = c['nombre']
-        
-        # Traslado Autorizado: si hoy salió del grupo
         if any(s for s in swaps if s['cadet_id'] == c_name and s['date'] == date_key and s['orig_group'] == base_group['name']):
             continue
-            
-        cd = c.copy()
         
-        # Prioridad 1: Suplencia
+        cd = c.copy()
+        # Lógica de Situación por Nombre (Crucial para el ART de Mercado Marcelo)
+        cd['situacion'] = day_st.get(c_name, "PRESENTE")
+        cd['is_sub'] = False
+        
         if c_name in day_ov:
             suplente = day_ov[c_name]
             cd['nombre'] = f"🔄 {suplente['nombre']}"
             cd['situacion'] = f"SUPLENTE POR {c_name.upper()}"
             cd['is_sub'] = True
-        else:
-            # Prioridad 2: Situación (Aquí se lee el "ART" o "NOTA MÉDICA" por nombre)
-            cd['situacion'] = day_st.get(c_name, "PRESENTE")
-            cd['is_sub'] = False
             
-        # Función
         if c_name in day_ro:
             cd['funcion'] = day_ro[c_name]
-            
         processed.append(cd)
 
-    # Traslados hacia el grupo
+    # Traslados hacia este grupo
     for s in swaps:
         if s['date'] == date_key and s['target_group'] == base_group['name']:
             cad_swap = s['cadet_obj'].copy()
@@ -176,6 +172,37 @@ def get_processed_guard_for_date(date):
             processed.append(cad_swap)
             
     return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
+
+# --- REPORTES PDF ---
+def generate_official_pdf(start_date, end_date):
+    pdf = FPDF()
+    curr = start_date
+    while curr <= end_date:
+        pdf.add_page()
+        try:
+            if os.path.exists(LOGO_FILE): pdf.image(LOGO_FILE, 10, 8, 25)
+            else: pdf.image(requests.get(ESCUDO_OFICIAL, stream=True).raw, 10, 8, 25)
+        except: pass
+        
+        pdf.set_y(15); pdf.set_font("helvetica", 'B', 16); pdf.cell(190, 8, "INSTITUTO DE ENSEÑANZA SUPERIOR DE POLICIA", align='C', ln=True)
+        pdf.set_font("helvetica", '', 11); pdf.cell(190, 6, f"DIAGRAMACIÓN DE GUARDIA - FECHA: {curr.strftime('%d/%m/%Y')}", align='C', ln=True)
+        
+        g_data = get_processed_guard_for_date(curr)
+        pdf.ln(10); pdf.set_font("helvetica", 'B', 12); pdf.cell(190, 10, f"GRUPO: {g_data['name']}", ln=True)
+        
+        pdf.set_fill_color(230, 230, 230); headers = ["N", "Apellido y Nombre", "Curso", "Funcion", "Situacion", "Firma"]
+        cols = [10, 55, 25, 40, 30, 30]
+        for h, w in zip(headers, cols): pdf.cell(w, 10, h, 1, align='C', fill=True)
+        pdf.ln(); pdf.set_font("helvetica", '', 9)
+        for i, c in enumerate(g_data['cadets']):
+            pdf.cell(cols[0], 8, str(i+1), 1, align='C')
+            pdf.cell(cols[1], 8, c['nombre'][:35].encode('latin-1', 'replace').decode('latin-1'), 1)
+            pdf.cell(cols[2], 8, c['curso'], 1, align='C')
+            pdf.cell(cols[3], 8, c['funcion'].encode('latin-1', 'replace').decode('latin-1'), 1, align='C')
+            pdf.cell(cols[4], 8, c['situacion'][:20].encode('latin-1', 'replace').decode('latin-1'), 1, align='C')
+            pdf.cell(cols[5], 8, "", 1, ln=True)
+        curr += timedelta(days=1)
+    return bytes(pdf.output())
 
 # --- INTERFAZ ---
 if 'logged_in' not in st.session_state: st.session_state.logged_in = False
@@ -191,23 +218,20 @@ if not st.session_state.logged_in:
             if pwd == "iesp2026": st.session_state.logged_in = True; st.rerun()
             else: st.error("Acceso Denegado")
 else:
-    # --- SIDEBAR ---
     with st.sidebar:
         if os.path.exists(LOGO_FILE): st.image(LOGO_FILE, width=140)
         else: st.image(ESCUDO_OFICIAL, width=120)
         st.markdown(f"<h3 style='color:white; text-align:center; font-size:0.8rem;'>IESP SISTEMA 2026</h3>", unsafe_allow_html=True)
-        
         if BASE_URL: st.success(f"☁️ Nube Conectada\nSinc: {st.session_state.last_sync}")
-        else: st.error("❌ Sin Configuración Cloud")
-
+        else: st.error("❌ Sin Cloud")
         menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Cambios Autorizados", "📂 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
         st.divider()
         if st.button("🔄 ACTUALIZAR DATOS", help="Descarga los cambios realizados en otros dispositivos"):
-            data_cloud = load_from_cloud()
-            if data_cloud:
-                st.session_state.update(data_cloud)
+            cloud_data = load_from_cloud()
+            if cloud_data:
+                st.session_state.update(cloud_data)
                 st.session_state.last_sync = datetime.now().strftime("%H:%M:%S")
-                st.success("¡Datos actualizados!")
+                st.success("¡Datos sincronizados!")
                 st.rerun()
         if st.button("🚪 CERRAR SESIÓN"): st.session_state.logged_in = False; st.rerun()
 
@@ -223,11 +247,10 @@ else:
         gi = get_processed_guard_for_date(sel_date)
         
         c1, c2, c3 = st.columns(3)
-        with c1: st.markdown(f"<div class='metric-card'><b>Guardia en Turno</b><br>{gi['name']}</div>", unsafe_allow_html=True)
-        with c2: st.markdown(f"<div class='metric-card'><b>Suplentes Activos</b><br>{sum(1 for c in gi['cadets'] if c.get('is_sub'))}</div>", unsafe_allow_html=True)
-        with c3: st.markdown(f"<div class='metric-card'><b>Novedades Hoy</b><br>{sum(1 for c in gi['cadets'] if 'PRESENTE' not in c['situacion'] and 'CAMBIO' not in c['situacion'])}</div>", unsafe_allow_html=True)
+        with c1: st.markdown(f"<div class='metric-card'><b>Guardia Actual</b><br>{gi['name']}</div>", unsafe_allow_html=True)
+        with c2: st.markdown(f"<div class='metric-card'><b>Suplentes</b><br>{sum(1 for c in gi['cadets'] if c.get('is_sub'))}</div>", unsafe_allow_html=True)
+        with c3: st.markdown(f"<div class='metric-card'><b>Novedades</b><br>{sum(1 for c in gi['cadets'] if 'PRESENTE' not in c['situacion'] and 'CAMBIO' not in c['situacion'])}</div>", unsafe_allow_html=True)
         
-        st.markdown("### 📋 Nómina del Personal")
         df_display = pd.DataFrame([{"N°": i+1, "Nombre": f"{'✅' if 'PRESENTE' in c['situacion'] or 'SUPLENTE' in c['situacion'] or 'CAMBIO' in c['situacion'] else '⚠️'} {c['nombre']}", "Función": c['funcion'], "Situación": c['situacion']} for i, c in enumerate(gi['cadets'])])
         st.dataframe(df_display, use_container_width=True, hide_index=True, height=(len(df_display)+1)*35+10, key=f"tbl_dash_{date_key}")
         
@@ -235,7 +258,6 @@ else:
         with col_m1:
             with st.container(border=True):
                 st.write("**📝 Asistencia**")
-                # Limpiar nombres de emojis para el selector
                 list_names = [c['nombre'].replace("🔄 ","").replace("✅ ","").replace("⚠️ ","").replace("⚡ ","") for c in gi['cadets']]
                 cad_sel = st.selectbox("Personal", list_names, key=f"sel_asist_{date_key}")
                 nuevo_st = st.selectbox("Estado", ["PRESENTE", "FRANCO", "A.R.T.", "AUSENTE", "NOTA MÉDICA"], key=f"sel_st_{date_key}")
@@ -258,13 +280,13 @@ else:
                 st.write("**🔄 Suplencia**")
                 list_names_t = [c['nombre'].replace("🔄 ","").replace("✅ ","").replace("⚠️ ","").replace("⚡ ","") for c in gi['cadets']]
                 titular_name = st.selectbox("Titular", list_names_t, key=f"sel_tit_{date_key}")
-                all_c = []
+                all_sup = []
                 for g in st.session_state.groups:
-                    for c in g['cadets']: all_c.append({"label": f"{c['nombre']} ({g['name']})", "obj": c})
-                suplente = st.selectbox("Buscar Suplente", range(len(all_c)), format_func=lambda x: all_c[x]['label'], key=f"sel_sup_{date_key}")
+                    for c in g['cadets']: all_sup.append({"label": f"{c['nombre']} ({g['name']})", "obj": c})
+                suplente = st.selectbox("Buscar Suplente", range(len(all_sup)), format_func=lambda x: all_sup[x]['label'], key=f"sel_sup_val_{date_key}")
                 if st.button("APLICAR REEMPLAZO", key=f"btn_sup_save_{date_key}"):
                     if date_key not in st.session_state.overrides: st.session_state.overrides[date_key] = {}
-                    st.session_state.overrides[date_key][titular_name] = all_c[suplente]['obj']
+                    st.session_state.overrides[date_key][titular_name] = all_sup[suplente]['obj']
                     sync_to_cloud(); st.rerun()
 
     elif menu == "⚖️ Guardia Castigo":
@@ -299,13 +321,7 @@ else:
                 sel_sw = st.selectbox("Cadete a Trasladar", range(len(all_sw_list)), format_func=lambda x: all_sw_list[x]['label'], key="sw_cad_sel")
                 target_sw = st.selectbox("Guardia Destino", [g['name'] for g in st.session_state.groups], key="sw_g_dest")
                 if st.button("REGISTRAR TRASLADO"):
-                    st.session_state.swaps.append({
-                        "date": str(sw_date), 
-                        "cadet_id": all_sw_list[sel_sw]['obj']['nombre'], 
-                        "cadet_obj": all_sw_list[sel_sw]['obj'], 
-                        "orig_group": all_sw_list[sel_sw]['oname'], 
-                        "target_group": target_sw
-                    })
+                    st.session_state.swaps.append({"date": str(sw_date), "cadet_id": all_sw_list[sel_sw]['obj']['nombre'], "cadet_obj": all_sw_list[sel_sw]['obj'], "orig_group": all_sw_list[sel_sw]['oname'], "target_group": target_sw})
                     sync_to_cloud(); st.rerun()
         with cb_sw:
             st.write("**Traslados Activos**")
@@ -320,14 +336,16 @@ else:
         s_rep = st.date_input("Desde", datetime.now().date(), key="rep_s")
         e_rep = st.date_input("Hasta", datetime.now().date(), key="rep_e")
         if st.button("🚀 GENERAR PDF"):
-            # Lógica simplificada de PDF (FPDF ya instalada en requirements)
-            pdf = FPDF()
-            pdf.add_page()
-            pdf.set_font("helvetica", "B", 16)
-            pdf.cell(190, 10, "PLANILLA DE GUARDIA IESP", align="C", ln=True)
-            pdf.set_font("helvetica", "", 10)
-            pdf.cell(190, 10, f"Periodo: {s_rep} al {e_rep}", align="C", ln=True)
-            st.download_button("⬇️ DESCARGAR", pdf.output(dest='S'), f"Guardia_{s_rep}.pdf")
+            pdf_bytes = generate_official_pdf(s_rep, e_rep)
+            st.download_button("⬇️ DESCARGAR", pdf_bytes, f"Diagramacion_{s_rep}.pdf", "application/pdf")
+
+    elif menu == "👥 Redistribución":
+        for i_red, g_red in enumerate(st.session_state.groups):
+            with st.expander(f"Editar {g_red['name']}"):
+                df_red = pd.DataFrame(g_red['cadets'])
+                df_red_res = st.data_editor(df_red, num_rows="dynamic", key=f"editor_red_{i_red}", use_container_width=True)
+                if st.button(f"Guardar Cambios {g_red['id']}", key=f"btn_red_save_{i_red}"):
+                    st.session_state.groups[i_red]['cadets'] = df_red_res.to_dict('records'); sync_to_cloud(); st.success("Guardado")
 
     elif menu == "⚙️ Ajustes":
         new_start = st.date_input("Inicio del Ciclo", st.session_state.start_date, key="aj_d")
