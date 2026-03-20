@@ -119,7 +119,7 @@ def save_cloud_data():
     except: pass
     return False
 
-# --- NÓMINA OFICIAL TOTAL (EXTRAÍDA DEL DOCX) ---
+# --- NÓMINA OFICIAL TOTAL (DOCX) ---
 def get_official_groups():
     return [
         {"id": "G1", "name": "GRUPO N° 1 de II° Año", "cadets": [
@@ -468,6 +468,14 @@ else:
                     st.session_state.removals[date_key].append(c_rem)
                     save_cloud_data(); st.rerun()
 
+        if date_key in st.session_state.removals and st.session_state.removals[date_key]:
+            with st.expander("🗑️ Ver Personal Quitado de esta Guardia"):
+                for idx_r, name_r in enumerate(st.session_state.removals[date_key]):
+                    c1, c2 = st.columns([4,1])
+                    c1.write(f"• {name_r}")
+                    if c2.button("Restablecer", key=f"re_btn_{idx_r}"):
+                        st.session_state.removals[date_key].pop(idx_r); save_cloud_data(); st.rerun()
+
     elif menu == "📋 Todas las Guardias":
         st.markdown("### 📋 Nóminas Permanentes (Word Oficial)")
         if st.button("⚠️ RESTABLECER TODA LA NÓMINA OFICIAL (WORD)", type="secondary", use_container_width=True):
@@ -502,8 +510,7 @@ else:
                     col_p1.write(f"❌ {p['nombre']} - **{p['funcion']}**")
                     if col_p2.button("🗑️", key=f"del_cast_{idx_del}"):
                         st.session_state.punishments[pk_cast].pop(idx_del)
-                        save_cloud_data()
-                        st.rerun()
+                        save_cloud_data(); st.rerun()
 
     elif menu == "🔄 Intercambio":
         d_sw = st.date_input("Fecha Servicio", get_now_tucuman().date())
@@ -524,11 +531,46 @@ else:
         st.download_button(label="⬇️ DESCARGAR REPORTE PDF (OFICIAL)", data=pdf_data, file_name=f"Diagramacion_IESP_{s_rep}_al_{e_rep}.pdf", mime="application/pdf", use_container_width=True)
 
     elif menu == "👥 Redistribución":
+        st.markdown("### 👥 Gestión de Personal Permanente")
+        st.info("Utilice esta sección para cambios definitivos en la nómina de los grupos. Al agregar o quitar, el orden (N°) se recalibrará automáticamente.")
+        
         for i, g in enumerate(st.session_state.groups):
-            with st.expander(f"Editar {g['name']}"):
-                res = st.data_editor(pd.DataFrame(g['cadets']), num_rows="dynamic", key=f"ed_grid_{i}", use_container_width=True)
-                if st.button(f"Confirmar en {g['id']}", key=f"btn_save_{i}"):
-                    st.session_state.groups[i]['cadets'] = res.to_dict('records'); save_cloud_data(); st.rerun()
+            with st.expander(f"📦 {g['name']}", expanded=(i==0)):
+                # Herramientas de edición rápida
+                col_e1, col_e2 = st.columns([2, 1])
+                with col_e1:
+                    with st.popover(f"➕ Añadir nuevo efectivo a {g['id']}"):
+                        n_name = st.text_input("Apellido y Nombre", key=f"nn_{i}")
+                        n_curso = st.selectbox("Curso", ["IIº Año", "IIIº Año"], key=f"nc_{i}")
+                        n_role = st.text_input("Función", value="Cadete Apostado", key=f"nr_{i}")
+                        if st.button("Guardar en Grupo", key=f"nb_{i}"):
+                            new_cadet = {"n": len(g['cadets'])+1, "nombre": n_name, "curso": n_curso, "funcion": n_role}
+                            st.session_state.groups[i]['cadets'].append(new_cadet)
+                            save_cloud_data(); st.success("Agregado exitosamente."); st.rerun()
+                
+                # Editor de la tabla existente
+                df_temp = pd.DataFrame(g['cadets'])
+                res = st.data_editor(
+                    df_temp, 
+                    num_rows="dynamic", 
+                    key=f"ed_grid_{i}", 
+                    use_container_width=True,
+                    column_config={
+                        "n": st.column_config.NumberColumn("N°", width="small", disabled=True),
+                        "nombre": "Apellido y Nombre",
+                        "curso": st.column_config.SelectboxColumn("Curso", options=["IIº Año", "IIIº Año"]),
+                        "funcion": "Función/Cargo"
+                    }
+                )
+                
+                if st.button(f"💾 Confirmar cambios en {g['id']}", key=f"btn_save_{i}"):
+                    updated_list = res.to_dict('records')
+                    # Recalcular N° de orden automáticamente para mantener la prolijidad
+                    for idx, cad in enumerate(updated_list):
+                        cad['n'] = idx + 1
+                    st.session_state.groups[i]['cadets'] = updated_list
+                    save_cloud_data()
+                    st.success("Cambios permanentes guardados y sincronizados."); st.rerun()
 
     elif menu == "⚙️ Ajustes":
         st.session_state.start_date = st.date_input("Inicio del Ciclo", st.session_state.start_date)
