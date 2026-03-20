@@ -60,14 +60,12 @@ inject_modern_css()
 # --- MOTOR DE SINCRONIZACIÓN (NIVEL 5 - REFORZADO) ---
 def get_cloud_params():
     try:
-        # Intentar leer desde el bloque JSON principal
         conf = json.loads(st.secrets["__firebase_config"])
         project_id = conf.get("projectId")
         api_key = conf.get("apiKey")
         app_id = st.secrets.get("__app_id", "iesp-v2026-final-oficial")
         return project_id, app_id, api_key
     except:
-        # Fallback a credenciales directas si el JSON falla
         try:
             return st.secrets["firebase"]["project_id"], "iesp-v2026-final-oficial", st.secrets["__firebase_config_api_key"]
         except: return None, None, None
@@ -76,9 +74,7 @@ PROJECT_ID, APP_ID, API_KEY = get_cloud_params()
 URL_DOC = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases/(default)/documents/artifacts/{APP_ID}/public/data/global_state?key={API_KEY}"
 
 def load_from_cloud():
-    if not PROJECT_ID or not API_KEY: 
-        st.error("Faltan credenciales en Secrets")
-        return None
+    if not PROJECT_ID or not API_KEY: return None
     try:
         ts = str(int(time.time() * 1000))
         headers = {"Cache-Control": "no-cache", "Pragma": "no-cache"}
@@ -87,9 +83,9 @@ def load_from_cloud():
             fields = resp.json().get("fields", {})
             return json.loads(fields.get("json_data", {}).get("stringValue", "{}"))
         else:
-            st.session_state.last_err = f"Error {resp.status_code}: {resp.text[:50]}"
+            st.session_state.last_err = f"Error {resp.status_code}: {resp.text[:30]}"
     except Exception as e:
-        st.session_state.last_err = f"Fallo: {str(e)[:50]}"
+        st.session_state.last_err = f"Fallo: {str(e)[:30]}"
     return None
 
 def sync_to_cloud():
@@ -142,7 +138,6 @@ if 'initialized' not in st.session_state:
     st.session_state.punishments = {}
     st.session_state.start_date = datetime(2026, 3, 19).date()
     
-    # Carga inicial forzada
     data = load_from_cloud()
     if data:
         st.session_state.update(data)
@@ -190,6 +185,34 @@ def get_processed_guard_for_date(date):
             
     return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
 
+# --- REPORTES PDF ---
+def generate_pdf(start_date, end_date):
+    pdf = FPDF()
+    curr = start_date
+    while curr <= end_date:
+        pdf.add_page()
+        try:
+            img_data = requests.get(ESCUDO_URL).content
+            with open("temp_logo.png", "wb") as f: f.write(img_data)
+            pdf.image("temp_logo.png", 10, 8, 25)
+        except: pass
+        pdf.set_y(15); pdf.set_font("helvetica", 'B', 16); pdf.cell(190, 8, "INSTITUTO DE ENSEÑANZA SUPERIOR DE POLICIA", align='C', ln=True)
+        pdf.set_font("helvetica", '', 11); pdf.cell(190, 6, f"DIAGRAMACIÓN DE GUARDIA - {curr.strftime('%d/%m/%Y')}", align='C', ln=True)
+        g_data = get_processed_guard_for_date(curr)
+        pdf.ln(10); pdf.set_font("helvetica", 'B', 12); pdf.cell(190, 10, f"GRUPO: {g_data['name']}", ln=True)
+        pdf.set_fill_color(230, 230, 230); headers = ["N", "Personal", "Función", "Situación", "Firma"]
+        cols = [10, 60, 40, 40, 40]
+        for h, w in zip(headers, cols): pdf.cell(w, 10, h, 1, align='C', fill=True)
+        pdf.ln(); pdf.set_font("helvetica", '', 9)
+        for i, c in enumerate(g_data['cadets']):
+            pdf.cell(cols[0], 8, str(i+1), 1, align='C')
+            pdf.cell(cols[1], 8, c['nombre'][:35].encode('latin-1', 'replace').decode('latin-1'), 1)
+            pdf.cell(cols[2], 8, c.get('funcion','N/A')[:20].encode('latin-1', 'replace').decode('latin-1'), 1, align='C')
+            pdf.cell(cols[3], 8, c['situacion'][:20].encode('latin-1', 'replace').decode('latin-1'), 1, align='C')
+            pdf.cell(cols[4], 8, "", 1, ln=True)
+        curr += timedelta(days=1)
+    return bytes(pdf.output())
+
 # --- INTERFAZ ---
 if not st.session_state.get('logged_in', False):
     _, col_log, _ = st.columns([1, 1.4, 1])
@@ -200,64 +223,58 @@ if not st.session_state.get('logged_in', False):
         if st.button("INGRESAR"):
             if pwd == "iesp2026": st.session_state.logged_in = True; st.rerun()
 else:
+    # --- SIDEBAR MAESTRO ---
     with st.sidebar:
         st.image(get_logo_path(), width=100)
         st.markdown(f"### 🛡️ MANDO DE GUARDIA")
         st.info(f"🕒 **Sello Nube:**\n`{st.session_state.get('data_timestamp', '00:00:00')}`")
         st.success(f"☁️ **Estado:**\n`{st.session_state.get('last_sync_status', 'Sin Datos')}`")
-        
         st.divider()
         menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Intercambio", "📂 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
         st.divider()
-        
-        if st.button("💾 SUBIR CAMBIOS (PC)"): 
-            sync_to_cloud()
-            
-        if st.button("🔄 DESCARGAR (CELULAR)"):
-            data = load_from_cloud()
-            if data:
-                # Limpieza y Actualización de llaves específicas
-                st.session_state.statuses = data.get("statuses", {})
-                st.session_state.overrides = data.get("overrides", {})
-                st.session_state.role_overrides = data.get("role_overrides", {})
-                st.session_state.swaps = data.get("swaps", [])
-                st.session_state.punishments = data.get("punishments", {})
-                st.session_state.data_timestamp = data.get("data_timestamp", "00:00:00")
-                if "start_date" in data:
-                    st.session_state.start_date = datetime.strptime(data.get("start_date"), "%Y-%m-%d").date()
-                st.toast("✅ Datos Descargados")
-                st.rerun()
+        if st.button("💾 GUARDAR CAMBIOS (PC)"): sync_to_cloud()
+        if st.button("🔄 ACTUALIZAR DATOS (CELULAR)"):
+            with st.spinner("Descargando..."):
+                data = load_from_cloud()
+                if data:
+                    st.session_state.statuses = data.get("statuses", {})
+                    st.session_state.overrides = data.get("overrides", {})
+                    st.session_state.role_overrides = data.get("role_overrides", {})
+                    st.session_state.swaps = data.get("swaps", [])
+                    st.session_state.punishments = data.get("punishments", {})
+                    st.session_state.data_timestamp = data.get("data_timestamp", "00:00:00")
+                    if "start_date" in data:
+                        st.session_state.start_date = datetime.strptime(data.get("start_date"), "%Y-%m-%d").date()
+                    st.session_state.last_sync_status = f"✅ OK {get_now_tucuman().strftime('%H:%M:%S')}"
+                    st.rerun()
 
-        with st.expander("🔍 ESTADO DE RED"):
-            st.caption(f"Status: {st.session_state.last_sync_status}")
-            st.caption(f"Error Log: {st.session_state.last_err}")
+        with st.expander("🔍 RED Y LOGS"):
+            st.caption(f"Error: {st.session_state.get('last_err', 'Ninguno')}")
             if st.button("🗑️ Reset Local"):
                 st.session_state.clear()
                 st.rerun()
-        
         if st.button("🚪 SALIR"): st.session_state.logged_in = False; st.rerun()
 
-    # Título Principal
+    # Cabecera
     c_logo, c_title = st.columns([1, 8])
     with c_logo: st.image(get_logo_path(), width=80)
-    with c_title: st.markdown(f"<h1 style='color:#0f172a; font-weight:800;'>Diagramación IESP <span style='color:#ef4444'>PRO</span></h1>", unsafe_allow_html=True)
+    with c_title: st.markdown(f"<h1 style='color:#0f172a; font-weight:800;'>Mando IESP <span style='color:#ef4444'>PRO</span></h1>", unsafe_allow_html=True)
 
     if menu == "🏠 Dashboard":
         sel_date = st.date_input("FECHA SELECCIONADA", get_now_tucuman().date(), key="dash_date"); date_key = str(sel_date)
         gi = get_processed_guard_for_date(sel_date)
+        m1, m2, m3 = st.columns(3)
+        with m1: st.markdown(f"<div class='metric-card'><p>Guardia Hoy</p><h3>{gi['name']}</h3></div>", unsafe_allow_html=True)
+        with m2: st.markdown(f"<div class='metric-card'><p>Sello Datos</p><h3>{st.session_state.get('data_timestamp', '00:00:00')}</h3></div>", unsafe_allow_html=True)
+        with m3: st.markdown(f"<div class='metric-card'><p>Efectivos</p><h3>{len(gi['cadets'])}</h3></div>", unsafe_allow_html=True)
         
-        col1, col2, col3 = st.columns(3)
-        with col1: st.markdown(f"<div class='metric-card'><p>Guardia Hoy</p><h3>{gi['name']}</h3></div>", unsafe_allow_html=True)
-        with col2: st.markdown(f"<div class='metric-card'><p>Sello Datos</p><h3>{st.session_state.data_timestamp}</h3></div>", unsafe_allow_html=True)
-        with col3: st.markdown(f"<div class='metric-card'><p>Efectivos</p><h3>{len(gi['cadets'])}</h3></div>", unsafe_allow_html=True)
+        st.dataframe(pd.DataFrame([{"N°": i+1, "Nombre": f"{'✅' if 'PRESENTE' in c['situacion'] else '⚠️'} {c['nombre']}", "Función": c['funcion'], "Situación": c['situacion']} for i, c in enumerate(gi['cadets'])]), use_container_width=True, hide_index=True, height=500)
         
-        st.dataframe(pd.DataFrame([{"N°": i+1, "Nombre": f"{'✅' if 'PRESENTE' in c['situacion'] else '⚠️'} {c['nombre']}", "Función": c['funcion'], "Situación": c['situacion']} for i, c in enumerate(gi['cadets'])]), use_container_width=True, hide_index=True, height=450)
-        
-        st.markdown("### 🛠️ Acciones Directas")
-        ca, cf, cs = st.columns(3)
+        st.markdown("### 🛠️ Herramientas de Mando")
+        col_as, col_fu, col_su = st.columns(3)
         list_pure = [c['nombre'].replace("✅ ","").replace("⚠️ ","").replace("⚡ ","").replace("🔄 ","").replace("⚖️ ","").strip() for c in gi['cadets']]
         
-        with ca:
+        with col_as:
             with st.container(border=True):
                 st.write("**📝 Asistencia**")
                 c_as = st.selectbox("Personal", list_pure, key="as_s")
@@ -267,7 +284,7 @@ else:
                     st.session_state.statuses[date_key][c_as] = n_st
                     sync_to_cloud(); st.rerun()
 
-        with cf:
+        with col_fu:
             with st.container(border=True):
                 st.write("**🎭 Función**")
                 c_fu = st.selectbox("Personal", list_pure, key="fu_s")
@@ -277,7 +294,7 @@ else:
                     st.session_state.role_overrides[date_key][c_fu] = n_fu
                     sync_to_cloud(); st.rerun()
 
-        with cs:
+        with col_su:
             with st.container(border=True):
                 st.write("**🔄 Suplencia**")
                 tit = st.selectbox("Titular", list_pure, key="su_s")
@@ -329,10 +346,9 @@ else:
         e_rep = st.date_input("Hasta", get_now_tucuman().date(), key="re")
         if st.button("🚀 GENERAR REPORTE"):
             pdf_bytes = generate_pdf(s_rep, e_rep)
-            st.download_button("⬇️ DESCARGAR PDF", pdf_bytes, f"IESP_Guardias.pdf", "application/pdf")
+            st.download_button("⬇️ DESCARGAR PDF", pdf_bytes, f"Guardias_IESP.pdf", "application/pdf")
 
     elif menu == "👥 Redistribución":
-        st.warning("⚠️ Edite con cuidado las nóminas permanentes.")
         for i_red, g_red in enumerate(st.session_state.groups):
             with st.expander(f"Editar {g_red['name']}"):
                 df_res = st.data_editor(pd.DataFrame(g_red['cadets']), num_rows="dynamic", key=f"ed_{i_red}", use_container_width=True)
@@ -340,6 +356,6 @@ else:
                     st.session_state.groups[i_red]['cadets'] = df_res.to_dict('records'); sync_to_cloud(); st.rerun()
 
     elif menu == "⚙️ Ajustes":
-        st.session_state.start_date = st.date_input("Inicio de Ciclo Operativo", st.session_state.start_date)
-        if st.button("GUARDAR CONFIGURACIÓN"):
+        st.session_state.start_date = st.date_input("Inicio de Ciclo", st.session_state.start_date)
+        if st.button("GUARDAR"):
             sync_to_cloud(); st.success("Ajustado")
