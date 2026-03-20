@@ -119,7 +119,7 @@ def save_cloud_data():
     except: pass
     return False
 
-# --- NÓMINA OFICIAL TOTAL (EXTRAÍDA DEL DOCX) ---
+# --- NÓMINA OFICIAL TOTAL ---
 def get_official_groups():
     return [
         {"id": "G1", "name": "GRUPO N° 1 de II° Año", "cadets": [
@@ -302,9 +302,7 @@ def get_processed_guard_for_date(date):
 
     for c in base_group['cadets']:
         c_name = c.get('nombre', '').strip()
-        # REGLA: Si el cadete fue quitado, no se incluye en el listado
         if c_name in day_removals: continue
-        # Verificar Intercambio Saliente
         if any(s for s in st.session_state.swaps if s['cadet_id'] == c_name and s['date'] == date_key and s['orig_group'] == base_group['name']): continue
         
         cd = c.copy()
@@ -329,6 +327,47 @@ def get_processed_guard_for_date(date):
         cad_e['nombre'] = f"➕ {cad_e['nombre']}"; cad_e['situacion'] = "REFUERZO"; processed.append(cad_e)
             
     return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
+
+# --- GENERADOR DE PDF OPERATIVO ---
+def generate_pdf(start_date, end_date):
+    pdf = FPDF()
+    curr = start_date
+    while curr <= end_date:
+        pdf.add_page()
+        # Encabezado
+        pdf.set_font("Helvetica", 'B', 14)
+        pdf.cell(190, 8, "INSTITUTO DE ENSEÑANZA SUPERIOR DE POLICIA", 0, 1, 'C')
+        pdf.set_font("Helvetica", '', 10)
+        pdf.cell(190, 6, f"DIAGRAMACION OPERATIVA DE GUARDIA - FECHA: {curr.strftime('%d/%m/%Y')}", 0, 1, 'C')
+        
+        g_data = get_processed_guard_for_date(curr)
+        pdf.ln(5)
+        pdf.set_font("Helvetica", 'B', 12)
+        pdf.cell(190, 10, f"SERVICIO EN TURNO: {g_data['name']}", 0, 1, 'L')
+        
+        # Tabla
+        pdf.set_fill_color(230, 230, 230)
+        pdf.set_font("Helvetica", 'B', 9)
+        pdf.cell(10, 8, "N", 1, 0, 'C', True)
+        pdf.cell(80, 8, "Apellido y Nombre", 1, 0, 'C', True)
+        pdf.cell(40, 8, "Funcion", 1, 0, 'C', True)
+        pdf.cell(30, 8, "Situacion", 1, 0, 'C', True)
+        pdf.cell(30, 8, "Firma", 1, 1, 'C', True)
+        
+        pdf.set_font("Helvetica", '', 8)
+        for i, c in enumerate(g_data['cadets']):
+            pdf.cell(10, 7, str(i+1), 1, 0, 'C')
+            # Sanitizar nombres para PDF
+            nombre_pdf = c['nombre'].encode('latin-1', 'replace').decode('latin-1')
+            pdf.cell(80, 7, nombre_pdf, 1, 0, 'L')
+            funcion_pdf = c['funcion'].encode('latin-1', 'replace').decode('latin-1')
+            pdf.cell(40, 7, funcion_pdf, 1, 0, 'C')
+            situacion_pdf = c['situacion'].encode('latin-1', 'replace').decode('latin-1')
+            pdf.cell(30, 7, situacion_pdf, 1, 0, 'C')
+            pdf.cell(30, 7, "", 1, 1)
+        
+        curr += timedelta(days=1)
+    return pdf.output()
 
 # --- INTERFAZ ---
 if not st.session_state.get('logged_in', False):
@@ -382,7 +421,6 @@ else:
         st.dataframe(df_view, use_container_width=True, hide_index=True, height=400)
         
         st.markdown("### 🛠️ Herramientas de Mando Directo")
-        # --- AHORA SON 5 COLUMNAS ---
         ca, cf, cs, cx, cr = st.columns(5)
         list_pure = [c['nombre'].replace("✅ ","").replace("⚠️ ","").replace("⚡ ","").replace("🔄 ","").replace("⚖️ ","").replace("➕ ","").strip() for c in gi['cadets']]
         
@@ -433,7 +471,6 @@ else:
                     st.session_state.removals[date_key].append(c_rem)
                     save_cloud_data(); st.rerun()
 
-        # --- LOG DE PERSONAL QUITADO ---
         if date_key in st.session_state.removals and st.session_state.removals[date_key]:
             with st.expander("🗑️ Ver Personal Quitado de esta Guardia"):
                 for idx_r, name_r in enumerate(st.session_state.removals[date_key]):
@@ -478,6 +515,24 @@ else:
             cad_a = st.session_state.groups[ga_idx]['cadets'][ca_idx]
             st.session_state.swaps.append({"date": str(d_sw), "cadet_id": cad_a['nombre'], "cadet_obj": cad_a, "orig_group": st.session_state.groups[ga_idx]['name'], "target_group": target_gb})
             save_cloud_data(); st.rerun()
+
+    elif menu == "📊 Reportes PDF":
+        st.markdown("### 📊 Generador de Diagramaciones Oficiales")
+        col1, col2 = st.columns(2)
+        s_rep = col1.date_input("Desde", get_now_tucuman().date())
+        e_rep = col2.date_input("Hasta", get_now_tucuman().date())
+        
+        if st.button("🚀 GENERAR PLANILLA PDF"):
+            with st.spinner("Generando reporte..."):
+                pdf_bytes = generate_pdf(s_rep, e_rep)
+                st.download_button(
+                    label="⬇️ DESCARGAR ARCHIVO PDF",
+                    data=pdf_bytes,
+                    file_name=f"Diagramacion_IESP_{s_rep}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+                st.success("Reporte generado con éxito.")
 
     elif menu == "👥 Redistribución":
         for i, g in enumerate(st.session_state.groups):
