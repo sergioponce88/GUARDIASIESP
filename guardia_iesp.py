@@ -19,6 +19,7 @@ st.set_page_config(
 
 # --- AJUSTE DE HORA TUCUMÁN (UTC-3) ---
 def get_now_tucuman():
+    # Streamlit Cloud corre en UTC, restamos 3 horas para Argentina
     return datetime.now() - timedelta(hours=3)
 
 # --- CONSTANTES INSTITUCIONALES ---
@@ -29,14 +30,17 @@ def get_logo_path():
     if os.path.exists(LOGO_LOCAL): return LOGO_LOCAL
     return ESCUDO_URL_ESTABLE
 
-# --- DISEÑO UI PREMIUM ---
+# --- DISEÑO UI PREMIUM (CSS REFORZADO) ---
 def inject_modern_css():
     st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap');
         * { font-family: 'Plus Jakarta Sans', sans-serif; }
         .main { background-color: #f8fafc; }
-        [data-testid="stSidebar"] { background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important; }
+        [data-testid="stSidebar"] { 
+            background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
+            border-right: 1px solid rgba(255,255,255,0.1);
+        }
         [data-testid="stSidebar"] * { color: #f1f5f9 !important; }
         .metric-card { 
             background: white; padding: 1.5rem; border-radius: 24px; 
@@ -49,12 +53,13 @@ def inject_modern_css():
             width: 100% !important; text-transform: uppercase; 
         }
         [data-testid="stDataFrame"] > div { border-radius: 20px !important; border: 1px solid #e2e8f0 !important; }
+        .stExpander { border-radius: 15px !important; background-color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
 inject_modern_css()
 
-# --- MOTOR DE SINCRONIZACIÓN (BYPASS TOTAL NIVEL 4) ---
+# --- MOTOR DE SINCRONIZACIÓN (BYPASS TOTAL) ---
 def get_cloud_params():
     try:
         conf = json.loads(st.secrets["__firebase_config"])
@@ -68,16 +73,11 @@ BASE_URL = f"https://firestore.googleapis.com/v1/projects/{PROJECT_ID}/databases
 def load_from_cloud():
     if not BASE_URL or not API_KEY: return None
     try:
-        # Semilla de tiempo Unix con milisegundos para romper CUALQUIER caché
-        unique_seed = str(time.time()).replace(".","")
-        headers = {
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0"
-        }
-        # URL físicamente distinta en cada milisegundo
-        url = f"{BASE_URL}/persistence/current_state?key={API_KEY}&_v={unique_seed}"
-        resp = requests.get(url, headers=headers, timeout=10)
+        # Generar semilla de entropía para romper el caché del celular
+        entropy = ''.join(random.choices(string.ascii_uppercase + string.digits, k=20))
+        headers = {"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache"}
+        url = f"{BASE_URL}/persistence/current_state?key={API_KEY}&refresh={entropy}&t={int(time.time())}"
+        resp = requests.get(url, headers=headers, timeout=15)
         if resp.status_code == 200:
             doc_data = resp.json().get("fields", {})
             return json.loads(doc_data.get("json_data", {}).get("stringValue", "{}"))
@@ -86,27 +86,25 @@ def load_from_cloud():
 
 def sync_to_cloud():
     if not BASE_URL or not API_KEY: return
-    # Sello de datos con microsegundos para validación absoluta
     st.session_state.data_timestamp = get_now_tucuman().strftime("%H:%M:%S")
     payload = {
         "groups": st.session_state.groups,
         "statuses": st.session_state.statuses,
         "overrides": st.session_state.overrides,
-        "swaps": st.session_state.swaps,
         "role_overrides": st.session_state.role_overrides,
+        "swaps": st.session_state.swaps,
         "punishments": st.session_state.punishments,
         "start_date": str(st.session_state.start_date),
-        "data_timestamp": st.session_state.data_timestamp,
-        "last_device": "MÓVIL" if st.sidebar.checkbox("Usando Celular", key="is_mobile_check") else "PC"
+        "data_timestamp": st.session_state.data_timestamp
     }
     try:
         url = f"{BASE_URL}/persistence/current_state?key={API_KEY}"
         body = {"fields": {"json_data": {"stringValue": json.dumps(payload)}}}
-        res = requests.patch(url, json=body, timeout=10)
+        res = requests.patch(url, json=body, timeout=15)
         if res.status_code == 200:
             st.session_state.last_op_time = get_now_tucuman().strftime("%H:%M:%S")
-            st.toast(f"✅ SUBIDO: {st.session_state.data_timestamp}")
-    except: st.error("❌ Fallo de red")
+            st.toast(f"✅ PC GUARDADA: {st.session_state.data_timestamp}", icon="☁️")
+    except: st.error("❌ Fallo al sincronizar con la nube.")
 
 # --- NÓMINA INSTITUCIONAL REAL ---
 DATOS_GRUPOS_BASE = [
@@ -123,7 +121,7 @@ DATOS_GRUPOS_BASE = [
 
 # --- INICIALIZACIÓN ---
 if 'initialized' not in st.session_state:
-    st.session_state.last_op_time = "Nunca"
+    st.session_state.last_op_time = "Esperando..."
     st.session_state.data_timestamp = "00:00:00"
     st.session_state.groups = DATOS_GRUPOS_BASE
     st.session_state.statuses, st.session_state.overrides = {}, {}
@@ -145,19 +143,26 @@ def get_processed_guard_for_date(date):
     
     day_st = st.session_state.statuses.get(date_key, {})
     day_ov = st.session_state.overrides.get(date_key, {})
+    day_ro = st.session_state.role_overrides.get(date_key, {})
     swaps = st.session_state.swaps
     punishments = st.session_state.punishments.get(date_key, [])
 
     for c in base_group['cadets']:
         c_name = c.get('nombre', 'Sin Nombre').strip()
+        # Verificar Intercambio Saliente
         if any(s for s in swaps if s['cadet_id'].strip() == c_name and s['date'] == date_key and s['orig_group'] == base_group['name']): continue
+        
         cd = c.copy()
         cd['situacion'] = day_st.get(c_name, "PRESENTE")
+        cd['funcion'] = day_ro.get(c_name, c.get('funcion'))
+        
+        # Verificar Suplencia
         if c_name in day_ov:
             cd['nombre'] = f"🔄 {day_ov[c_name]['nombre']}"
-            cd['situacion'] = f"SUPLENTE"
+            cd['situacion'] = f"REEMPLAZO"
         processed.append(cd)
 
+    # Añadir Intercambios Entrantes
     for s in swaps:
         if s['date'] == date_key and s['target_group'] == base_group['name']:
             cad_swap = s['cadet_obj'].copy()
@@ -165,6 +170,7 @@ def get_processed_guard_for_date(date):
             cad_swap['situacion'] = f"INTERCAMBIO"
             processed.append(cad_swap)
             
+    # Añadir Guardia Castigo
     for p in punishments:
         cad_p = p.copy()
         cad_p['nombre'] = f"⚖️ {cad_p['nombre']}"; cad_p['situacion'] = "CASTIGO"
@@ -172,13 +178,40 @@ def get_processed_guard_for_date(date):
             
     return {"name": base_group['name'], "cadets": processed, "id": base_group['id']}
 
+# --- REPORTES PDF ---
+def generate_pdf(start_date, end_date):
+    pdf = FPDF()
+    curr = start_date
+    while curr <= end_date:
+        pdf.add_page()
+        try:
+            img_data = requests.get(ESCUDO_URL_ESTABLE).content
+            with open("temp_logo.png", "wb") as f: f.write(img_data)
+            pdf.image("temp_logo.png", 10, 8, 25)
+        except: pass
+        pdf.set_y(15); pdf.set_font("helvetica", 'B', 16); pdf.cell(190, 8, "INSTITUTO DE ENSEÑANZA SUPERIOR DE POLICIA", align='C', ln=True)
+        pdf.set_font("helvetica", '', 11); pdf.cell(190, 6, f"DIAGRAMACIÓN DE GUARDIA - {curr.strftime('%d/%m/%Y')}", align='C', ln=True)
+        g_data = get_processed_guard_for_date(curr)
+        pdf.ln(10); pdf.set_font("helvetica", 'B', 12); pdf.cell(190, 10, f"GRUPO: {g_data['name']}", ln=True)
+        pdf.set_fill_color(230, 230, 230); headers = ["N", "Personal", "Situación", "Firma"]
+        cols = [10, 80, 50, 50]
+        for h, w in zip(headers, cols): pdf.cell(w, 10, h, 1, align='C', fill=True)
+        pdf.ln(); pdf.set_font("helvetica", '', 9)
+        for i, c in enumerate(g_data['cadets']):
+            pdf.cell(cols[0], 8, str(i+1), 1, align='C')
+            pdf.cell(cols[1], 8, c['nombre'][:35].encode('latin-1', 'replace').decode('latin-1'), 1)
+            pdf.cell(cols[2], 8, c['situacion'][:20].encode('latin-1', 'replace').decode('latin-1'), 1, align='C')
+            pdf.cell(cols[3], 8, "", 1, ln=True)
+        curr += timedelta(days=1)
+    return bytes(pdf.output())
+
 # --- INTERFAZ ---
 if not st.session_state.get('logged_in', False):
     _, col_log, _ = st.columns([1, 1.4, 1])
     with col_log:
         st.image(get_logo_path(), width=150)
         st.markdown("<h2 style='text-align:center;'>SISTEMA IESP 2026</h2>", unsafe_allow_html=True)
-        pwd = st.text_input("PASSWORD", type="password")
+        pwd = st.text_input("CLAVE", type="password")
         if st.button("INGRESAR"):
             if pwd == "iesp2026": st.session_state.logged_in = True; st.rerun()
 else:
@@ -186,61 +219,77 @@ else:
     with st.sidebar:
         st.image(get_logo_path(), width=100)
         st.markdown(f"### 🛡️ MANDO OPERATIVO")
-        
-        # MONITOR DE SINCRONÍA ABSOLUTA
-        st.info(f"🕒 **ÚLTIMA SUBIDA (NUBE):**\n`{st.session_state.get('data_timestamp')}`")
-        st.success(f"☁️ **ESTADO DISPOSITIVO:**\n`Sincronizado {st.session_state.last_op_time}`")
-        st.caption(f"Ultimo Cambio desde: {st.session_state.get('last_device', 'PC')}")
-        
+        st.info(f"🕒 **SELLO NUBE:**\n`{st.session_state.get('data_timestamp')}`")
+        st.success(f"☁️ **TU ESTADO:**\n`Sincronizado {st.session_state.last_op_time}`")
         st.divider()
-        menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Intercambio", "⚙️ Ajustes"])
+        menu = st.radio("NAVEGACIÓN", ["🏠 Dashboard", "📋 Todas las Guardias", "⚖️ Guardia Castigo", "🔄 Intercambio", "📂 Reportes PDF", "👥 Redistribución", "⚙️ Ajustes"])
         st.divider()
-        
         if st.button("💾 SUBIR CAMBIOS (PC)"): sync_to_cloud()
-        
-        if st.button("🔄 DESCARGAR DATOS (FORZADO)"):
+        if st.button("🔄 DESCARGAR (CELULAR)"):
             data = load_from_cloud()
             if data:
-                # REEMPLAZO TOTAL DE VARIABLES
                 st.session_state.statuses = data.get("statuses", {})
                 st.session_state.overrides = data.get("overrides", {})
                 st.session_state.role_overrides = data.get("role_overrides", {})
                 st.session_state.swaps = data.get("swaps", [])
                 st.session_state.punishments = data.get("punishments", {})
                 st.session_state.data_timestamp = data.get("data_timestamp", "00:00:00")
-                st.session_state.last_device = data.get("last_device", "PC")
                 if "start_date" in data: st.session_state.start_date = datetime.strptime(data.get("start_date"), "%Y-%m-%d").date()
                 st.session_state.last_op_time = get_now_tucuman().strftime("%H:%M:%S")
                 st.success("¡DESCARGA EXITOSA!"); st.rerun()
-
         if st.button("🚪 SALIR"): st.session_state.logged_in = False; st.rerun()
 
     # Cabecera
     c_logo, c_title = st.columns([1, 8])
-    with c_logo: st.image(get_logo_path(), width=90)
-    with c_title: st.markdown(f"<h1 style='color:#0f172a; font-weight:800;'>Diagramación IESP <span style='color:#ef4444'>PRO</span></h1>", unsafe_allow_html=True)
+    with c_logo: st.image(get_logo_path(), width=80)
+    with c_title: st.markdown(f"<h1 style='color:#0f172a; font-weight:800;'>Mando IESP <span style='color:#ef4444'>PRO</span></h1>", unsafe_allow_html=True)
 
     if menu == "🏠 Dashboard":
         sel_date = st.date_input("FECHA SELECCIONADA", get_now_tucuman().date(), key="dash_date"); date_key = str(sel_date)
         gi = get_processed_guard_for_date(sel_date)
-        
         m1, m2, m3 = st.columns(3)
-        with m1: st.markdown(f"<div class='metric-card'><p>Guardia Activa</p><h3>{gi['name']}</h3></div>", unsafe_allow_html=True)
-        with m2: st.markdown(f"<div class='metric-card'><p>Hora en Nube</p><h3>{st.session_state.data_timestamp}</h3></div>", unsafe_allow_html=True)
+        with m1: st.markdown(f"<div class='metric-card'><p>Guardia Hoy</p><h3>{gi['name']}</h3></div>", unsafe_allow_html=True)
+        with m2: st.markdown(f"<div class='metric-card'><p>Sello Datos</p><h3>{st.session_state.data_timestamp}</h3></div>", unsafe_allow_html=True)
         with m3: st.markdown(f"<div class='metric-card'><p>Novedades</p><h3>{sum(1 for c in gi['cadets'] if 'PRESENTE' not in c['situacion'])}</h3></div>", unsafe_allow_html=True)
         
-        st.divider()
         st.dataframe(pd.DataFrame([{"N°": i+1, "Nombre": f"{'✅' if 'PRESENTE' in c['situacion'] else '⚠️'} {c['nombre']}", "Situación": c['situacion']} for i, c in enumerate(gi['cadets'])]), use_container_width=True, hide_index=True)
         
-        with st.container(border=True):
-            st.write("**📝 Modificar Asistencia**")
-            list_pure = [c['nombre'].replace("✅ ","").replace("⚠️ ","").replace("⚡ ","").replace("🔄 ","").strip() for c in gi['cadets']]
-            cad_sel = st.selectbox("Personal", list_pure, key="as_sel")
-            nuevo_st = st.selectbox("Estado", ["PRESENTE", "FRANCO", "A.R.T.", "AUSENTE", "NOTA MÉDICA"], key="st_sel")
-            if st.button("GUARDAR EN NUBE"):
-                if date_key not in st.session_state.statuses: st.session_state.statuses[date_key] = {}
-                st.session_state.statuses[date_key][cad_sel] = nuevo_st
-                sync_to_cloud(); st.rerun()
+        st.markdown("### 🛠️ Herramientas de Mando")
+        col_as, col_fu, col_su = st.columns(3)
+        list_pure = [c['nombre'].replace("✅ ","").replace("⚠️ ","").replace("⚡ ","").replace("🔄 ","").replace("⚖️ ","").strip() for c in gi['cadets']]
+        
+        with col_as:
+            with st.container(border=True):
+                st.write("**📝 Asistencia**")
+                cad_sel = st.selectbox("Personal", list_pure, key="as_sel")
+                nuevo_st = st.selectbox("Estado", ["PRESENTE", "FRANCO", "A.R.T.", "AUSENTE", "NOTA MÉDICA"], key="st_sel")
+                if st.button("Guardar Estado"):
+                    if date_key not in st.session_state.statuses: st.session_state.statuses[date_key] = {}
+                    st.session_state.statuses[date_key][cad_sel] = nuevo_st
+                    sync_to_cloud(); st.rerun()
+
+        with col_fu:
+            with st.container(border=True):
+                st.write("**🎭 Función**")
+                cad_sel_f = st.selectbox("Personal", list_pure, key="fu_sel")
+                nueva_fu = st.text_input("Nueva Función", key="fu_val")
+                if st.button("Asignar Función"):
+                    if date_key not in st.session_state.role_overrides: st.session_state.role_overrides[date_key] = {}
+                    st.session_state.role_overrides[date_key][cad_sel_f] = nueva_fu
+                    sync_to_cloud(); st.rerun()
+
+        with col_su:
+            with st.container(border=True):
+                st.write("**🔄 Suplencia**")
+                titular = st.selectbox("Titular", list_pure, key="su_sel")
+                all_opts = []
+                for g in st.session_state.groups:
+                    for c in g.get('cadets', []): all_opts.append({"label": f"{c['nombre']} ({g['name']})", "obj": c})
+                idx_sup = st.selectbox("Suplente", range(len(all_opts)), format_func=lambda x: all_opts[x]['label'])
+                if st.button("Aplicar Reemplazo"):
+                    if date_key not in st.session_state.overrides: st.session_state.overrides[date_key] = {}
+                    st.session_state.overrides[date_key][titular] = all_opts[idx_sup]['obj']
+                    sync_to_cloud(); st.rerun()
 
     elif menu == "📋 Todas las Guardias":
         gi_today = get_processed_guard_for_date(get_now_tucuman().date())
@@ -256,18 +305,40 @@ else:
         pk_cast = str(st.date_input("Fecha Castigo", get_now_tucuman().date()))
         g_idx = st.selectbox("Grupo", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'])
         c_idx = st.selectbox("Cadete", range(len(st.session_state.groups[g_idx]['cadets'])), format_func=lambda x: st.session_state.groups[g_idx]['cadets'][x]['nombre'])
-        if st.button("AGREGAR"):
+        if st.button("AGREGAR AL REFUERZO"):
             if pk_cast not in st.session_state.punishments: st.session_state.punishments[pk_cast] = []
             st.session_state.punishments[pk_cast].append(st.session_state.groups[g_idx]['cadets'][c_idx]); sync_to_cloud(); st.rerun()
 
     elif menu == "🔄 Intercambio":
-        sw_date = st.date_input("Fecha", get_now_tucuman().date())
-        ga = st.selectbox("Grupo A", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'], key="ga")
-        ca = st.selectbox("Cadete A", range(len(st.session_state.groups[ga]['cadets'])), format_func=lambda x: st.session_state.groups[ga]['cadets'][x]['nombre'], key="ca")
-        gb = st.selectbox("Grupo B", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'], key="gb")
-        cb = st.selectbox("Cadete B", range(len(st.session_state.groups[gb]['cadets'])), format_func=lambda x: st.session_state.groups[gb]['cadets'][x]['nombre'], key="cb")
+        sw_date = st.date_input("Fecha Servicio", get_now_tucuman().date())
+        col_a, col_b = st.columns(2)
+        with col_a:
+            g_a = st.selectbox("Grupo A", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'], key="ga")
+            c_a = st.selectbox("Cadete A", range(len(st.session_state.groups[g_a]['cadets'])), format_func=lambda x: st.session_state.groups[g_a]['cadets'][x]['nombre'], key="ca")
+        with col_b:
+            g_b = st.selectbox("Grupo B", range(len(st.session_state.groups)), format_func=lambda x: st.session_state.groups[x]['name'], key="gb")
+            c_b = st.selectbox("Cadete B", range(len(st.session_state.groups[g_b]['cadets'])), format_func=lambda x: st.session_state.groups[g_b]['cadets'][x]['nombre'], key="cb")
         if st.button("INTERCAMBIAR"):
-            cad_a, cad_b = st.session_state.groups[ga]['cadets'][ca], st.session_state.groups[gb]['cadets'][cb]
-            st.session_state.swaps.append({"date": str(sw_date), "cadet_id": cad_a['nombre'], "cadet_obj": cad_a, "orig_group": st.session_state.groups[ga]['name'], "target_group": st.session_state.groups[gb]['name']})
-            st.session_state.swaps.append({"date": str(sw_date), "cadet_id": cad_b['nombre'], "cadet_obj": cad_b, "orig_group": st.session_state.groups[gb]['name'], "target_group": st.session_state.groups[ga]['name']})
+            cad_a, cad_b = st.session_state.groups[g_a]['cadets'][c_a], st.session_state.groups[g_b]['cadets'][c_b]
+            st.session_state.swaps.append({"date": str(sw_date), "cadet_id": cad_a['nombre'], "cadet_obj": cad_a, "orig_group": st.session_state.groups[g_a]['name'], "target_group": st.session_state.groups[g_b]['name']})
+            st.session_state.swaps.append({"date": str(sw_date), "cadet_id": cad_b['nombre'], "cadet_obj": cad_b, "orig_group": st.session_state.groups[g_b]['name'], "target_group": st.session_state.groups[g_a]['name']})
             sync_to_cloud(); st.rerun()
+
+    elif menu == "📂 Reportes PDF":
+        s_rep = st.date_input("Desde", get_now_tucuman().date(), key="rs")
+        e_rep = st.date_input("Hasta", get_now_tucuman().date(), key="re")
+        if st.button("🚀 GENERAR PDF"):
+            pdf_bytes = generate_pdf(s_rep, e_rep)
+            st.download_button("⬇️ DESCARGAR", pdf_bytes, f"Guardias_{s_rep}.pdf", "application/pdf")
+
+    elif menu == "👥 Redistribución":
+        for i_red, g_red in enumerate(st.session_state.groups):
+            with st.expander(f"Editar {g_red['name']}"):
+                df_res = st.data_editor(pd.DataFrame(g_red['cadets']), num_rows="dynamic", key=f"ed_{i_red}", use_container_width=True)
+                if st.button(f"Guardar {g_red['id']}", key=f"bs_{i_red}"):
+                    st.session_state.groups[i_red]['cadets'] = df_res.to_dict('records'); sync_to_cloud(); st.rerun()
+
+    elif menu == "⚙️ Ajustes":
+        new_start = st.date_input("Inicio de Ciclo Operativo", st.session_state.start_date)
+        if st.button("GUARDAR CONFIGURACIÓN"):
+            st.session_state.start_date = new_start; sync_to_cloud(); st.success("Ajustado")
